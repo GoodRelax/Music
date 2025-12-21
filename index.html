@@ -105,6 +105,9 @@
         margin: 0; padding: 0; color: var(--text-main); 
         height: 100vh; display: flex; flex-direction: column; overflow: hidden;
         transition: background 0.3s, color 0.3s;
+        /* Prevent selection during touch/click on keys */
+        -webkit-user-select: none;
+        user-select: none;
     }
     
     /* Fullscreen fallback */
@@ -163,14 +166,15 @@
     /* --- Keyboard Styles --- */
     .keyboard-container { overflow-x: auto; display: flex; justify-content: center; width: 100%; padding-bottom: 10px; }
     .keyboard { display: flex; position: relative; height: 80px; padding-top: 5px; width: max-content; }
-    .key { border: 1px solid #999; border-radius: 0 0 3px 3px; position: relative; z-index: 1; display: flex; justify-content: center; }
+    .key { border: 1px solid #999; border-radius: 0 0 3px 3px; position: relative; z-index: 1; display: flex; justify-content: center; cursor: pointer; }
+    .key:active { transform: translateY(2px); box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
     .key.white { width: 30px; height: 75px; background: var(--key-white); }
     .key.black { width: 20px; height: 45px; background: var(--key-black); margin-left: -10px; margin-right: -10px; z-index: 2; border-radius: 0 0 2px 2px; }
     .key.white.chord-bg { background: var(--chord-bg) !important; } 
     .key.black.chord-bg { background: var(--chord-bg) !important; border-color: var(--chord-border); }
     .key-label { position: absolute; bottom: 2px; width: 100%; text-align: center; font-size: 8px; color: #aaa; pointer-events: none; }
     .key.black .key-label { display: none; }
-    .dot { position: absolute; width: 8px; height: 8px; border-radius: 50%; bottom: 12px; z-index: 5; border: 1px solid rgba(255,255,255,0.9); }
+    .dot { position: absolute; width: 8px; height: 8px; border-radius: 50%; bottom: 12px; z-index: 5; border: 1px solid rgba(255,255,255,0.9); pointer-events: none; }
     .key.black .dot { bottom: 6px; }
     .dot.root { background: #d50000; transform: scale(1.2); }
     .dot.guide { background: #ef5350; }
@@ -451,6 +455,8 @@ function deselectAll() {
     cofApp.jumpTo(0); 
     document.getElementById('keyNameDisplay').innerText = "Key : C";
     setTimeout(() => cofApp.updateKey(null), 100); 
+    // Stop all sounds
+    if(typeof audioApp !== 'undefined') audioApp.stopAll();
 }
 
 // === Integration Glue ===
@@ -891,6 +897,188 @@ class TheoryEngine {
 }
 const jcscEngine = new TheoryEngine();
 
+// === Sound Engine (Web Audio API) ===
+class SoundEngine {
+    constructor() {
+        this.ctx = null;
+        this.activeVoices = {}; 
+        this.activeTimers = []; 
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    getFreq(semitone, octave) {
+        const noteNum = (octave + 1) * 12 + semitone;
+        return 440 * Math.pow(2, (noteNum - 69) / 12);
+    }
+
+    startTone(freq, voiceId, type = 'triangle', volume = 0.2, duration = 0) {
+        if (!this.ctx) this.init();
+        this.stopTone(voiceId, 0.05);
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const now = this.ctx.currentTime;
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(volume, now + 0.01); 
+        
+        if (duration > 0) {
+             gain.gain.linearRampToValueAtTime(volume * 0.8, now + (duration * 0.6));
+             gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        } else {
+             gain.gain.linearRampToValueAtTime(volume * 0.8, now + 0.2); 
+        }
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        
+        if (duration > 0) {
+            osc.stop(now + duration + 0.05);
+        }
+
+        this.activeVoices[voiceId] = { osc, gain };
+    }
+
+    stopTone(voiceId, releaseTime = 0.1) {
+        if (!this.ctx || !this.activeVoices[voiceId]) return;
+        const { osc, gain } = this.activeVoices[voiceId];
+        const now = this.ctx.currentTime;
+
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + releaseTime);
+
+        osc.stop(now + releaseTime);
+        setTimeout(() => {
+            if (this.activeVoices[voiceId] && this.activeVoices[voiceId].osc === osc) {
+                delete this.activeVoices[voiceId];
+            }
+        }, releaseTime * 1000 + 50);
+    }
+
+    stopAll() {
+        this.activeTimers.forEach(id => clearTimeout(id));
+        this.activeTimers = [];
+        Object.keys(this.activeVoices).forEach(id => this.stopTone(id));
+    }
+
+    // --- High Level Functions ---
+
+    // Helper: Enforce G3-F#4 Range Logic
+    _getBestOctave(semitone) {
+        // 0(C) ~ 6(F#) -> Oct 4
+        // 7(G) ~ 11(B) -> Oct 3
+        return (semitone >= 7) ? 3 : 4;
+    }
+
+    // Updated: Uses strict Split Rule for Chord Start Note
+    playArpeggio(semitones, sustain = true, ignoredKeySemi = 0) {
+        this.stopAll(); 
+        if (!semitones.length) return;
+
+        const startNote = semitones[0];
+        
+        // Determine start octave based on the note itself (Absolute Split)
+        const startOctave = this._getBestOctave(startNote);
+
+        const sequence = this._buildRisingSequence(semitones, startOctave); 
+
+        sequence.forEach((note, i) => {
+            const freq = this.getFreq(note.s, note.oct);
+            const voiceId = `chord-${i}`;
+            const delay = i * 60; 
+
+            const timerId = setTimeout(() => {
+                this.startTone(freq, voiceId, 'triangle', 0.2);
+                if (!sustain) {
+                   setTimeout(() => this.stopTone(voiceId, 0.1), 200); 
+                }
+            }, delay);
+            this.activeTimers.push(timerId);
+        });
+    }
+
+    // Updated: Uses strict Split Rule for Scale Loop too
+    playScaleLoop(scaleObjs) {
+        this.stopAll();
+        if (!scaleObjs.length) return;
+
+        const rootObj = scaleObjs[0];
+        // Determine start octave based on the note itself (Absolute Split)
+        const startOctave = this._getBestOctave(rootObj.s);
+
+        const upSeq = this._buildRisingSequence(scaleObjs, startOctave);
+        
+        const lastNote = upSeq[upSeq.length - 1];
+        let topOct = lastNote.oct;
+        if (rootObj.s < lastNote.s) topOct++;
+        
+        upSeq.push({ s: rootObj.s, isAvoid: false, oct: topOct });
+
+        const downSeq = [];
+        for (let i = upSeq.length - 2; i > 0; i--) {
+            downSeq.push(upSeq[i]);
+        }
+        const fullSequence = upSeq.concat(downSeq);
+
+        let idx = 0;
+        
+        const tick = () => {
+            const prevId = `scale-loop`;
+            const note = fullSequence[idx];
+            
+            // Swing Logic
+            const isDownbeat = (idx % 2 === 0);
+            const noteDurationMs = isDownbeat ? 240 : 120; 
+            const noteDurationSec = noteDurationMs / 1000;
+
+            if (!note.isAvoid) {
+                const freq = this.getFreq(note.s, note.oct);
+                this.startTone(freq, prevId, 'sine', 0.2, noteDurationSec * 0.95);
+            }
+
+            idx = (idx + 1) % fullSequence.length;
+            const timerId = setTimeout(tick, noteDurationMs);
+            this.activeTimers.push(timerId);
+        };
+        tick();
+    }
+
+    _buildRisingSequence(inputList, startOctave) {
+        const seq = [];
+        let currentOct = startOctave;
+        let prevVal = -1;
+
+        inputList.forEach(item => {
+            const val = (typeof item === 'object') ? item.s : item;
+            if (prevVal !== -1 && val < prevVal) currentOct++;
+            
+            if (typeof item === 'object') {
+                seq.push({ ...item, oct: currentOct });
+            } else {
+                seq.push({ s: val, oct: currentOct });
+            }
+            prevVal = val;
+        });
+        return seq;
+    }
+}
+const audioApp = new SoundEngine();
+
+// === Application Logic ===
 const jcscApp = {
     rows: [
         { key: "Ebm", chord: "Ebm" }, { key: "Ebm", chord: "Bbm7" }, { key: "Gb",  chord: "BM7" }, { key: "Gb",  chord: "Abm6" },
@@ -966,7 +1154,8 @@ const jcscApp = {
         this.renderTable();
         const selected = document.querySelector('.selected-row');
         if(selected) {
-            selected.click(); 
+            // Re-trigger highlight to update CoF without playing sound again (optional)
+            // But transpose usually happens via CoF drag which already handles sound logic if needed
         }
     },
 
@@ -983,64 +1172,196 @@ const jcscApp = {
     renderTable() {
         const tbody = document.querySelector('#mainTable tbody');
         tbody.innerHTML = '';
+        
+        const semiToCoF = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
+
         this.rows.forEach((row, i) => {
             const analysis = jcscEngine.analyze(row.key, row.chord);
             const tr = document.createElement('tr');
-            tr.onclick = () => this.highlightRow(i);
-            
+            tr.onclick = () => jcscApp.highlightRow(i);
+
             const actions = `
                 <button class="btn-action btn-add" onclick="event.stopPropagation(); jcscApp.insertRow(${i})">+</button>
                 <button class="btn-action btn-del" onclick="event.stopPropagation(); jcscApp.deleteRow(${i})">-</button>
             `;
+
+            // --- Analysis & Roots ---
+            const chordParts = jcscEngine.splitChord(row.chord);
+            const rootStruct = jcscEngine.parseNoteStruct(chordParts.root);
+            const rootSemi = rootStruct ? rootStruct.semitone : 0; 
+            
+            const keyStruct = jcscEngine.parseNoteStruct(row.key.replace('m','')); 
+            const keySemi = keyStruct ? keyStruct.semitone : 0; 
+
+            // --- CoF Calculation for Chord Inversion ---
+            const rootCoF = semiToCoF[rootSemi];
+            const keyCoF = semiToCoF[keySemi];
+
+            let diff = rootCoF - keyCoF;
+            if (diff > 6) diff -= 12;
+            if (diff <= -6) diff += 12;
+
+            // --- Collect Tones ---
+            let chordTones = [];
+            let scaleTones = []; 
+            
+            if (analysis.keyboardMap) {
+                Object.keys(analysis.keyboardMap).forEach(k => {
+                    const semi = parseInt(k);
+                    const mapData = analysis.keyboardMap[semi];
+                    
+                    if (mapData.isChord) chordTones.push(semi);
+                    
+                    scaleTones.push({
+                        s: semi,
+                        isAvoid: (mapData.dotType === 'avoid')
+                    });
+                });
+            }
+
+            // --- Determine Base Note for CHORD (Inversion Rule) ---
+            let chordBaseNote = rootSemi; 
+            if (diff === 0) {
+                chordBaseNote = rootSemi;
+            } else if (diff === -1) {
+                chordBaseNote = chordTones.find(s => {
+                    const d = (s - rootSemi + 12) % 12;
+                    return d === 7; 
+                }) ?? rootSemi;
+            } else {
+                chordBaseNote = chordTones.find(s => {
+                    const d = (s - rootSemi + 12) % 12;
+                    return d === 3 || d === 4; 
+                }) ?? rootSemi;
+            }
+
+            // --- Reorder Logic ---
+            const reorderNumbers = (tones, base) => {
+                return tones.sort((a, b) => {
+                    const distA = (a - base + 12) % 12;
+                    const distB = (b - base + 12) % 12;
+                    return distA - distB;
+                });
+            };
+            
+            const reorderObjects = (tones, base) => {
+                return tones.sort((a, b) => {
+                    const distA = (a.s - base + 12) % 12;
+                    const distB = (b.s - base + 12) % 12;
+                    return distA - distB;
+                });
+            };
+
+            // Apply Sort:
+            // Chord: Uses CoF-based 'chordBaseNote' (Inversions applied)
+            chordTones = reorderNumbers(chordTones, chordBaseNote);
+
+            // Scale: ALWAYS uses 'rootSemi' (No inversion, strictly Root start)
+            scaleTones = reorderObjects(scaleTones, rootSemi);
+
+            const chordData = JSON.stringify(chordTones);
+            const scaleData = JSON.stringify(scaleTones).replace(/"/g, '&quot;');
+
             tr.innerHTML = `
                 <td>${i + 1}</td>
                 <td class="col-key">
                     <div class="editable-cell" contenteditable="true" 
-                         onfocus="jcscApp.highlightRow(${i})"
                          onblur="jcscApp.updateRow(${i}, 'key', this.innerText)" 
                          onkeydown="jcscApp.handleEnter(event, this)">${row.key}</div>
                 </td>
                 <td class="col-chord">
                     <div class="editable-cell" contenteditable="true" 
-                         onfocus="jcscApp.highlightRow(${i})"
                          onblur="jcscApp.updateRow(${i}, 'chord', this.innerText)" 
                          onkeydown="jcscApp.handleEnter(event, this)">${row.chord}</div>
                 </td>
                 <td>${analysis.roman}</td>
                 <td>${analysis.func}</td>
                 <td>${analysis.scaleName}</td>
-                <td class="mono-col">${analysis.chordTonesDisplay}</td>
-                <td class="mono-col">${analysis.scaleTonesDisplay}</td>
+                
+                <td class="mono-col"
+                    style="cursor: help;"
+                    onmousedown="audioApp.playArpeggio(${chordData}, true, ${keySemi})"
+                    onmouseup="audioApp.stopAll()"
+                    onmouseleave="audioApp.stopAll()"
+                    title="Click to play (Auto Inversion)">${analysis.chordTonesDisplay}</td>
+                    
+                <td class="mono-col"
+                    style="cursor: help;"
+                    onmousedown="audioApp.playScaleLoop(${scaleData})"
+                    onmouseup="audioApp.stopAll()"
+                    onmouseleave="audioApp.stopAll()"
+                    title="Click to play Scale (Swing)">${analysis.scaleTonesDisplay}</td>
                 <td style="text-align:center;">${actions}</td>
             `;
             tbody.appendChild(tr);
         });
     },
     highlightRow(index) {
+        // REMOVED stopAll() to allow mousedown events to persist sound 
+        // while the row is being selected/focused.
+
         const row = this.rows[index];
         if (!row) return;
-        const analysis = jcscEngine.analyze(row.key, row.chord);
 
         const rows = document.querySelectorAll('#mainTable tbody tr');
         rows.forEach(r => r.classList.remove('selected-row'));
         if (rows[index]) rows[index].classList.add('selected-row');
-        
+
+        const analysis = jcscEngine.analyze(row.key, row.chord);
         this.updateKeyboard(analysis.keyboardMap);
         onRowHighlight(row.key, row.chord);
     },
     setupKeyboardUI() {
         const kb = document.getElementById('keyboard');
-        let html = '';
+        kb.innerHTML = ''; // Clear existing
         const notes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
         const isBlack = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0];
+        const baseOctave = 3; 
+
+        // Helper to bind events
+        const createKey = (semi, oct, label) => {
+            const type = isBlack[semi] ? 'black' : 'white';
+            const el = document.createElement('div');
+            el.className = `key ${type}`;
+            el.dataset.semi = semi;
+            
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'key-label';
+            labelDiv.textContent = label;
+            el.appendChild(labelDiv);
+
+            // Unique ID for this key's voice
+            const voiceId = `key-${oct}-${semi}`;
+            const freq = audioApp.getFreq(semi, oct);
+
+            // Mouse Events
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent text selection
+                audioApp.startTone(freq, voiceId);
+            });
+            el.addEventListener('mouseup', () => audioApp.stopTone(voiceId));
+            el.addEventListener('mouseleave', () => audioApp.stopTone(voiceId));
+
+            // Touch Events (for mobile)
+            el.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                audioApp.startTone(freq, voiceId);
+            }, {passive: false});
+            el.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                audioApp.stopTone(voiceId);
+            });
+
+            return el;
+        };
+
         for(let oct=0; oct<3; oct++) {
             for(let i=0; i<12; i++) {
-                const type = isBlack[i] ? 'black' : 'white';
-                html += `<div class="key ${type}" data-semi="${i}"><div class="key-label">${notes[i]}</div></div>`;
+                kb.appendChild(createKey(i, baseOctave + oct, notes[i]));
             }
         }
-        html += `<div class="key white" data-semi="0"><div class="key-label">C</div></div>`;
-        kb.innerHTML = html;
+        // Final C
+        kb.appendChild(createKey(0, baseOctave + 3, 'C'));
     },
     updateKeyboard(map) {
         const keys = document.querySelectorAll('.key');
@@ -1048,7 +1369,7 @@ const jcscApp = {
             k.classList.remove('chord-bg');
             const oldDot = k.querySelector('.dot');
             if(oldDot) oldDot.remove();
-            const semi = parseInt(k.getAttribute('data-semi'));
+            const semi = parseInt(k.dataset.semi); // Use dataset
             if (map && map[semi]) {
                 const data = map[semi];
                 if (data.isChord) k.classList.add('chord-bg');
@@ -1377,4 +1698,3 @@ window.onload = function() {
 </script>
 </body>
 </html>
-
