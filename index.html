@@ -147,6 +147,20 @@
     .btn-std.active { background: var(--input-focus); border-color: var(--chord-border); font-weight: bold; color: #0277bd; }
     body.dark-mode .btn-std.active { background: #0d47a1; color: #fff; border-color: #444; }
 
+    /* New style for header dropdown */
+    .header-select {
+        font-size: 11px;
+        height: 28px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0 5px;
+        max-width: 220px; /* Wider width to fit text */
+        margin-right: 4px;
+        background: var(--bg-container);
+        color: var(--text-main);
+        flex-shrink: 1; /* Allow shrinking if needed on mobile */
+    }
+
     .sep { width: 1px; height: 18px; background: var(--border-color); margin: 0 4px; }
 
     /* === Visualizer Section === */
@@ -315,15 +329,19 @@
         </div>
     </div>
     <div class="header-controls">
-        <button class="btn-std" onclick="toggleFullScreen()" title="Full Screen">⛶</button>
-        <button class="btn-std active" id="btn-show-key" onclick="switchVisualizer('keyboard')" title="Show Keyboard">🎹</button>
-        <button class="btn-std" id="btn-show-cof" onclick="switchVisualizer('cof')" title="Show Circle of Fifths">🔵</button>
+        <button class="btn-std" onclick="toggleFullScreen()" title="Full Screen">FS</button>
+        <button class="btn-std active" id="btn-show-key" onclick="switchVisualizer('keyboard')" title="Show Keyboard">KB</button>
+        <button class="btn-std" id="btn-show-cof" onclick="switchVisualizer('cof')" title="Show Circle of Fifths">CoF</button>
         
         <div class="sep"></div>
         
+        <select id="presetSelect" class="header-select" onchange="jcscApp.loadPreset()"></select>
+        
+        <div class="sep"></div>
+
         <button class="btn-std" onclick="jcscApp.copyTSV()">Copy</button>
-        <button class="btn-std" onclick="toggleAllDark()">🌙</button>
-        <button class="btn-std" onclick="deselectAll()">↺</button>
+        <button class="btn-std" onclick="toggleAllDark()">Dark</button>
+        <button class="btn-std" onclick="deselectAll()">CLR</button>
     </div>
 </header>
 
@@ -527,6 +545,7 @@ function onRowHighlight(keyStr, chordStr) {
 }
 
 // --- JCSC LOGIC ---
+// --- JCSC LOGIC (Database Updated) ---
 const jcscDB = {
     "intervals": [
         {"IntervalID":"P1","DeltaSemitone":"0","DeltaDegree":"0"},
@@ -547,6 +566,7 @@ const jcscDB = {
         {"IntervalID":"A1","DeltaSemitone":"1","DeltaDegree":"0"},
         {"IntervalID":"d4","DeltaSemitone":"4","DeltaDegree":"3"},
         {"IntervalID":"d6","DeltaSemitone":"7","DeltaDegree":"5"},
+        {"IntervalID":"d8","DeltaSemitone":"11","DeltaDegree":"0"}, 
         {"IntervalID":"P4","IntervalName":"Perfect 4th (Enharmonic A3)","DeltaSemitone":"5","DeltaDegree":"2"}, 
         {"IntervalID":"d3","DeltaSemitone":"2","DeltaDegree":"2"},
         {"IntervalID":"b9","DeltaSemitone":"13","DeltaDegree":"8"},
@@ -565,6 +585,7 @@ const jcscDB = {
         {"ChordSymbol":"sus4","IntervalsStructure":"P1, P4, P5","GuideToneIntervals":"P4","RomanSuffix":"sus4"},
         {"ChordSymbol":"M7","IntervalsStructure":"P1, M3, P5, M7","GuideToneIntervals":"M3, M7","RomanSuffix":"M7"},
         {"ChordSymbol":"M6","IntervalsStructure":"P1, M3, P5, M6","GuideToneIntervals":"M3, M6","RomanSuffix":"6"},
+        {"ChordSymbol":"6","IntervalsStructure":"P1, M3, P5, M6","GuideToneIntervals":"M3, M6","RomanSuffix":"6"},
         {"ChordSymbol":"M9","IntervalsStructure":"P1, M3, P5, M7, 9","GuideToneIntervals":"M3, M7, 9","RomanSuffix":"M9"},
         {"ChordSymbol":"M69","IntervalsStructure":"P1, M3, P5, M6, 9","GuideToneIntervals":"M3, M6, 9","RomanSuffix":"69"},
         {"ChordSymbol":"M7#11","IntervalsStructure":"P1, M3, P5, M7, #11","GuideToneIntervals":"M3, M7, #11","RomanSuffix":"M7#11"},
@@ -622,6 +643,7 @@ const jcscDB = {
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"7","ScaleName":"Mixolydian","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"A1","ChordSymbol":"dim7","ScaleName":"W-H Diminished","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"M6","ScaleName":"Ionian","HarmonicFunction":"T","UsageType":"Main"},
+        {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"6","ScaleName":"Ionian","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"M69","ScaleName":"Ionian","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"M7","ScaleName":"Ionian","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"M9","ScaleName":"Ionian","HarmonicFunction":"T","UsageType":"Main"},
@@ -643,6 +665,7 @@ const jcscDB = {
         {"KeyType":"Major","DegreeIntervalID":"m3","ChordSymbol":"dim7","ScaleName":"W-H Diminished","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"M3","ChordSymbol":"m","ScaleName":"Phrygian","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"M3","ChordSymbol":"m7","ScaleName":"Phrygian","HarmonicFunction":"T","UsageType":"Main"},
+        {"KeyType":"Major","DegreeIntervalID":"d4","ChordSymbol":"M7","ScaleName":"Ionian","HarmonicFunction":"T","UsageType":"Alt"},
         {"KeyType":"Major","DegreeIntervalID":"P4","ChordSymbol":"7","ScaleName":"Lydian Dominant","HarmonicFunction":"SD","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"d4","ChordSymbol":"dim7","ScaleName":"W-H Diminished","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"A4","ChordSymbol":"dim7","ScaleName":"W-H Diminished","HarmonicFunction":"D","UsageType":"Main"},
@@ -652,6 +675,7 @@ const jcscDB = {
         {"KeyType":"Major","DegreeIntervalID":"A4","ChordSymbol":"m7b5","ScaleName":"Locrian","HarmonicFunction":"SD","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"P4","ChordSymbol":"M9","ScaleName":"Lydian","HarmonicFunction":"SD","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"P4","ChordSymbol":"","ScaleName":"Lydian","HarmonicFunction":"SD","UsageType":"Main"},
+        {"KeyType":"Major","DegreeIntervalID":"P5","ChordSymbol":"m7","ScaleName":"Dorian","HarmonicFunction":"D","UsageType":"Alt"},
         {"KeyType":"Major","DegreeIntervalID":"P5","ChordSymbol":"7","ScaleName":"Lydian Dominant","HarmonicFunction":"D","UsageType":"Alt"},
         {"KeyType":"Major","DegreeIntervalID":"P5","ChordSymbol":"7","ScaleName":"Whole Tone","HarmonicFunction":"D","UsageType":"Alt"},
         {"KeyType":"Major","DegreeIntervalID":"P5","ChordSymbol":"7","ScaleName":"Altered","HarmonicFunction":"D","UsageType":"Alt"},
@@ -674,6 +698,7 @@ const jcscDB = {
         {"KeyType":"Major","DegreeIntervalID":"M6","ChordSymbol":"m","ScaleName":"Aeolian","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"M6","ChordSymbol":"m7","ScaleName":"Aeolian","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"m6","ChordSymbol":"M7","ScaleName":"Lydian","HarmonicFunction":"SD","UsageType":"Main"},
+        {"KeyType":"Major","DegreeIntervalID":"d8","ChordSymbol":"7","ScaleName":"Mixolydian","HarmonicFunction":"-","UsageType":"Alt"},
         {"KeyType":"Major","DegreeIntervalID":"M7","ChordSymbol":"7","ScaleName":"Altered","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"m7","ChordSymbol":"7","ScaleName":"Lydian Dominant","HarmonicFunction":"SD","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"M7","ChordSymbol":"dim","ScaleName":"Locrian","HarmonicFunction":"D","UsageType":"Main"},
@@ -898,6 +923,7 @@ class TheoryEngine {
 const jcscEngine = new TheoryEngine();
 
 // === Sound Engine (Web Audio API) ===
+// === Sound Engine (Web Audio API) ===
 class SoundEngine {
     constructor() {
         this.ctx = null;
@@ -977,49 +1003,43 @@ class SoundEngine {
 
     // --- High Level Functions ---
 
-    // Helper: Enforce G3-F#4 Range Logic
     _getBestOctave(semitone) {
-        // 0(C) ~ 6(F#) -> Oct 4
-        // 7(G) ~ 11(B) -> Oct 3
         return (semitone >= 7) ? 3 : 4;
     }
 
-    // Updated: Uses strict Split Rule for Chord Start Note
-    playArpeggio(semitones, sustain = true, ignoredKeySemi = 0) {
-        this.stopAll(); 
+    // Updated: Slower tempo for checking by ear
+    playArpeggio(semitones, sustain = true, keySemi = 0, stopPrevious = true, volume = 0.2) {
+        if (stopPrevious) this.stopAll(); 
         if (!semitones.length) return;
 
         const startNote = semitones[0];
-        
-        // Determine start octave based on the note itself (Absolute Split)
         const startOctave = this._getBestOctave(startNote);
-
         const sequence = this._buildRisingSequence(semitones, startOctave); 
 
         sequence.forEach((note, i) => {
             const freq = this.getFreq(note.s, note.oct);
             const voiceId = `chord-${i}`;
-            const delay = i * 60; 
+            
+            // Change: Slow down arpeggio (100ms per note = approx 16th note at BPM 60)
+            const delay = i * 100; 
 
             const timerId = setTimeout(() => {
-                this.startTone(freq, voiceId, 'triangle', 0.2);
+                this.startTone(freq, voiceId, 'triangle', volume);
                 if (!sustain) {
-                   setTimeout(() => this.stopTone(voiceId, 0.1), 200); 
+                   setTimeout(() => this.stopTone(voiceId, 0.1), 800); 
                 }
             }, delay);
             this.activeTimers.push(timerId);
         });
     }
 
-    // Updated: Uses strict Split Rule for Scale Loop too
-    playScaleLoop(scaleObjs) {
-        this.stopAll();
+    // Updated: Slower tempo (BPM 60)
+    playScaleLoop(scaleObjs, stopPrevious = true, volume = 0.2) {
+        if (stopPrevious) this.stopAll();
         if (!scaleObjs.length) return;
 
         const rootObj = scaleObjs[0];
-        // Determine start octave based on the note itself (Absolute Split)
         const startOctave = this._getBestOctave(rootObj.s);
-
         const upSeq = this._buildRisingSequence(scaleObjs, startOctave);
         
         const lastNote = upSeq[upSeq.length - 1];
@@ -1040,14 +1060,19 @@ class SoundEngine {
             const prevId = `scale-loop`;
             const note = fullSequence[idx];
             
-            // Swing Logic
+            // Change: BPM 60 (1 beat = 1000ms)
+            // Swing Ratio 2:1 -> 666ms : 334ms
             const isDownbeat = (idx % 2 === 0);
-            const noteDurationMs = isDownbeat ? 240 : 120; 
+            const noteDurationMs = isDownbeat ? 666 : 334; 
             const noteDurationSec = noteDurationMs / 1000;
 
             if (!note.isAvoid) {
                 const freq = this.getFreq(note.s, note.oct);
-                this.startTone(freq, prevId, 'sine', 0.2, noteDurationSec * 0.95);
+                this.startTone(freq, prevId, 'sine', volume, noteDurationSec * 0.95);
+            } else {
+                // Avoid Note (Ghost note)
+                const freq = this.getFreq(note.s, note.oct);
+                this.startTone(freq, prevId, 'sine', volume * 0.3, noteDurationSec * 0.4);
             }
 
             idx = (idx + 1) % fullSequence.length;
@@ -1055,6 +1080,14 @@ class SoundEngine {
             this.activeTimers.push(timerId);
         };
         tick();
+    }
+
+    playChordAndScale(chordTones, scaleObjs, keySemi) {
+        this.stopAll();
+        // Play Chord Background (Low volume)
+        this.playArpeggio(chordTones, true, keySemi, false, 0.05);
+        // Play Scale Lead (Standard volume)
+        this.playScaleLoop(scaleObjs, false, 0.2);
     }
 
     _buildRisingSequence(inputList, startOctave) {
@@ -1078,6 +1111,25 @@ class SoundEngine {
 }
 const audioApp = new SoundEngine();
 
+// === Chord Presets Data ===
+const chordPresets = [
+    { name: "Diatonic Mor Scale Chords", key: "C", seq: "CM7 – Dm7 – Em7 – FM7 – G7 – Am7 – Bm7b5" },
+    { name: "Diatonic Minor Scale Chords", key: "Am", seq: "Am7 – Bm7b5 – CM7 – Dm7 – Em7 – FM7 – G7" },
+    { name: "Minor ii–V–I Progression", key: "Cm", seq: "Dm7b5 – G7 – Cm7" },
+    { name: "12-Bar Blues", key: "F", seq: "F7 – Bb7 – F7 – F7 / Bb7 – Bb7 – F7 – D7 / Gm7 – C7 – F7 – C7" },
+    { name: "ii–V–I Progression", key: "Bb", seq: "Cm7 – F7 – BbM7" },
+    { name: "Pachelbel’s Canon", key: "C", seq: "CM7 – G7 – Am7 – E7 / FM7 – C – Dm7 – G7" },
+    { name: "Rhythm Changes", key: "Bb", seq: "Bb6 – G7 – Cm7 – F7 / Bb6 – G7 – Cm7 – F7 / D7 – G7 – Cm7 – F7" },
+    { name: "Axis of Awesome", key: "C", seq: "CM7 – G7 – Am7 – FM7" },
+    { name: "’50s Progression (Doo-Wop)", key: "C", seq: "C6 – A7 – Dm7 – G7" },
+    { name: "Circle of Fifths Progression", key: "Bb", seq: "BbM7 – Em7b5 – A7 – Dm7 – G7 – Cm7 – F7" },
+    { name: "I–vi–ii–V Turnaround", key: "Bb", seq: "BbM7 – G7 – Cm7 – F7" },
+    { name: "Coltrane Changes", key: "B", seq: "BM7 – D7 – GM7 – Bb7 – EbM7 – F#7 – BM7" },
+    { name: "Andalusian Cadence", key: "Am", seq: "Am – G – F – E7" },
+    { name: "Bird Blues", key: "F", seq: "F7 – Bb7 – F7 – A7 / Dm7 – G7 – Cm7 – F7" },
+    { name: "Happy Birthday", key: "G", seq: "D7 – GM7 – GM7 – D7 / GM7 – CM7 – GM7 – D7 – G" }
+];
+
 // === Application Logic ===
 const jcscApp = {
     rows: [
@@ -1090,9 +1142,57 @@ const jcscApp = {
     NOTES_FLAT:  ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'],
 
     init() {
+        this.initPresets();
         this.renderTable();
         this.setupKeyboardUI();
     },
+
+    initPresets() {
+        const sel = document.getElementById('presetSelect');
+        if(!sel) return;
+        
+        // Add a placeholder option at the top
+        const defaultOpt = document.createElement('option');
+        defaultOpt.text = "Select Progression...";
+        defaultOpt.value = "-1";
+        defaultOpt.disabled = true;
+        defaultOpt.selected = true;
+        sel.appendChild(defaultOpt);
+
+        chordPresets.forEach((p, idx) => {
+            const opt = document.createElement('option');
+            opt.value = idx;
+            opt.textContent = p.name;
+            sel.appendChild(opt);
+        });
+    },
+
+    loadPreset() {
+        const sel = document.getElementById('presetSelect');
+        const idx = parseInt(sel.value);
+        
+        if (idx === -1 || isNaN(idx)) return; // Handle placeholder
+
+        const preset = chordPresets[idx];
+        if (!preset) return;
+
+        // Split by " - ", " – ", or " / " (space + separator + space)
+        // This regex preserves "C/E" (no spaces) but splits "E7 / Fmaj7"
+        const chords = preset.seq.split(/\s+(?:–|-|\/)\s+/);
+
+        this.rows = chords.map(c => {
+            // Basic cleanup
+            return { key: preset.key, chord: c.trim() };
+        });
+
+        this.renderTable();
+        // Reset CoF view to the new key
+        onRowHighlight(preset.key, this.rows[0].chord);
+        
+        // Remove focus from select so keyboard shortcuts work on table
+        sel.blur();
+    },
+
     insertRow(index) {
         const refRow = this.rows[index];
         this.rows.splice(index + 1, 0, { key: refRow.key, chord: "" });
@@ -1253,10 +1353,7 @@ const jcscApp = {
             };
 
             // Apply Sort:
-            // Chord: Uses CoF-based 'chordBaseNote' (Inversions applied)
             chordTones = reorderNumbers(chordTones, chordBaseNote);
-
-            // Scale: ALWAYS uses 'rootSemi' (No inversion, strictly Root start)
             scaleTones = reorderObjects(scaleTones, rootSemi);
 
             const chordData = JSON.stringify(chordTones);
@@ -1276,7 +1373,12 @@ const jcscApp = {
                 </td>
                 <td>${analysis.roman}</td>
                 <td>${analysis.func}</td>
-                <td>${analysis.scaleName}</td>
+                
+                <td style="cursor: help;"
+                    onmousedown="audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
+                    onmouseup="audioApp.stopAll()"
+                    onmouseleave="audioApp.stopAll()"
+                    title="Click to play Chord & Scale">${analysis.scaleName}</td>
                 
                 <td class="mono-col"
                     style="cursor: help;"
@@ -1698,3 +1800,5 @@ window.onload = function() {
 </script>
 </body>
 </html>
+
+
