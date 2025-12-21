@@ -1278,7 +1278,7 @@ const jcscApp = {
         this.rows.forEach((row, i) => {
             const analysis = jcscEngine.analyze(row.key, row.chord);
             const tr = document.createElement('tr');
-            // 行クリック選択（タッチ対応は基本動作に任せるが、誤動作防止のためstopPropagationを入れる場合もある）
+            // PC用クリックイベント（変更なし）
             tr.onclick = () => jcscApp.highlightRow(i);
 
             const actions = `
@@ -1360,6 +1360,7 @@ const jcscApp = {
             const chordData = JSON.stringify(chordTones);
             const scaleData = JSON.stringify(scaleTones).replace(/"/g, '&quot;');
 
+            // ★修正ポイント: ontouchstart に jcscApp.highlightRow(${i}) を追加して強制的に選択を実行させる
             tr.innerHTML = `
                 <td>${i + 1}</td>
                 <td class="col-key">
@@ -1379,7 +1380,7 @@ const jcscApp = {
                     onmousedown="audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
                     onmouseup="audioApp.stopAll()"
                     onmouseleave="audioApp.stopAll()"
-                    ontouchstart="event.preventDefault(); audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
+                    ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
                     ontouchend="event.preventDefault(); audioApp.stopAll()"
                     title="Click/Hold to play Chord & Scale">${analysis.scaleName}</td>
                 
@@ -1388,7 +1389,7 @@ const jcscApp = {
                     onmousedown="audioApp.playArpeggio(${chordData}, true, ${keySemi})"
                     onmouseup="audioApp.stopAll()"
                     onmouseleave="audioApp.stopAll()"
-                    ontouchstart="event.preventDefault(); audioApp.playArpeggio(${chordData}, true, ${keySemi})"
+                    ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playArpeggio(${chordData}, true, ${keySemi})"
                     ontouchend="event.preventDefault(); audioApp.stopAll()"
                     title="Click/Hold to play (Auto Inversion)">${analysis.chordTonesDisplay}</td>
                     
@@ -1397,7 +1398,7 @@ const jcscApp = {
                     onmousedown="audioApp.playScaleLoop(${scaleData})"
                     onmouseup="audioApp.stopAll()"
                     onmouseleave="audioApp.stopAll()"
-                    ontouchstart="event.preventDefault(); audioApp.playScaleLoop(${scaleData})"
+                    ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playScaleLoop(${scaleData})"
                     ontouchend="event.preventDefault(); audioApp.stopAll()"
                     title="Click/Hold to play Scale (Swing)">${analysis.scaleTonesDisplay}</td>
                 <td style="text-align:center;">${actions}</td>
@@ -1807,4 +1808,5 @@ window.onload = function() {
 </script>
 </body>
 </html>
+
 
