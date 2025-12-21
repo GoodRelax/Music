@@ -1060,10 +1060,10 @@ class SoundEngine {
             const prevId = `scale-loop`;
             const note = fullSequence[idx];
             
-            // Change: BPM 60 (1 beat = 1000ms)
-            // Swing Ratio 2:1 -> 666ms : 334ms
+            // Change: BPM 60 (1 beat = 667ms)
+            // Swing Ratio 2:1 -> 444ms : 223ms
             const isDownbeat = (idx % 2 === 0);
-            const noteDurationMs = isDownbeat ? 666 : 334; 
+            const noteDurationMs = isDownbeat ? 444 : 223; 
             const noteDurationSec = noteDurationMs / 1000;
 
             if (!note.isAvoid) {
@@ -1278,6 +1278,7 @@ const jcscApp = {
         this.rows.forEach((row, i) => {
             const analysis = jcscEngine.analyze(row.key, row.chord);
             const tr = document.createElement('tr');
+            // 行クリック選択（タッチ対応は基本動作に任せるが、誤動作防止のためstopPropagationを入れる場合もある）
             tr.onclick = () => jcscApp.highlightRow(i);
 
             const actions = `
@@ -1378,21 +1379,27 @@ const jcscApp = {
                     onmousedown="audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
                     onmouseup="audioApp.stopAll()"
                     onmouseleave="audioApp.stopAll()"
-                    title="Click to play Chord & Scale">${analysis.scaleName}</td>
+                    ontouchstart="event.preventDefault(); audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
+                    ontouchend="event.preventDefault(); audioApp.stopAll()"
+                    title="Click/Hold to play Chord & Scale">${analysis.scaleName}</td>
                 
                 <td class="mono-col"
                     style="cursor: help;"
                     onmousedown="audioApp.playArpeggio(${chordData}, true, ${keySemi})"
                     onmouseup="audioApp.stopAll()"
                     onmouseleave="audioApp.stopAll()"
-                    title="Click to play (Auto Inversion)">${analysis.chordTonesDisplay}</td>
+                    ontouchstart="event.preventDefault(); audioApp.playArpeggio(${chordData}, true, ${keySemi})"
+                    ontouchend="event.preventDefault(); audioApp.stopAll()"
+                    title="Click/Hold to play (Auto Inversion)">${analysis.chordTonesDisplay}</td>
                     
                 <td class="mono-col"
                     style="cursor: help;"
                     onmousedown="audioApp.playScaleLoop(${scaleData})"
                     onmouseup="audioApp.stopAll()"
                     onmouseleave="audioApp.stopAll()"
-                    title="Click to play Scale (Swing)">${analysis.scaleTonesDisplay}</td>
+                    ontouchstart="event.preventDefault(); audioApp.playScaleLoop(${scaleData})"
+                    ontouchend="event.preventDefault(); audioApp.stopAll()"
+                    title="Click/Hold to play Scale (Swing)">${analysis.scaleTonesDisplay}</td>
                 <td style="text-align:center;">${actions}</td>
             `;
             tbody.appendChild(tr);
@@ -1800,5 +1807,4 @@ window.onload = function() {
 </script>
 </body>
 </html>
-
 
