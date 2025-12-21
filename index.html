@@ -5,10 +5,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>JCSC x CoF Integration</title>
+<title>JCSC</title>
 <style>
     /* =========================================
-       1. Common Variable
+       1. Common Variables
        ========================================= */
     :root {
         /* JCSC Variables */
@@ -49,11 +49,17 @@
         --hl-tritone: #fff9c4;        
         --hl-tritone-border: #fbc02d;
 
-        /* Active Chord - Red (Must stand out) */
+        /* Active Chord - Red */
         --hl-active-chord: #d32f2f; 
         --hl-active-chord-stroke: #b71c1c;
         
         --arrow-color: #555;
+        
+        /* Center Button */
+        --btn-center-bg: #f0f0f0;
+        --btn-center-text: #333;
+        --btn-center-stroke: #ccc;
+        --btn-center-hover: #e0e0e0;
     }
 
     body.dark-mode {
@@ -96,6 +102,12 @@
         --hl-active-chord-stroke: #ff8a80;
 
         --arrow-color: #bbb;
+        
+        /* Center Button Dark */
+        --btn-center-bg: #333;
+        --btn-center-text: #eee;
+        --btn-center-stroke: #555;
+        --btn-center-hover: #444;
     }
 
     /* === Base Layout === */
@@ -105,12 +117,10 @@
         margin: 0; padding: 0; color: var(--text-main); 
         height: 100vh; display: flex; flex-direction: column; overflow: hidden;
         transition: background 0.3s, color 0.3s;
-        /* Prevent selection during touch/click on keys */
         -webkit-user-select: none;
         user-select: none;
     }
     
-    /* Fullscreen fallback */
     body.is-fullscreen {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
     }
@@ -147,18 +157,17 @@
     .btn-std.active { background: var(--input-focus); border-color: var(--chord-border); font-weight: bold; color: #0277bd; }
     body.dark-mode .btn-std.active { background: #0d47a1; color: #fff; border-color: #444; }
 
-    /* New style for header dropdown */
     .header-select {
         font-size: 11px;
         height: 28px;
         border: 1px solid var(--border-color);
         border-radius: 4px;
         padding: 0 5px;
-        max-width: 220px; /* Wider width to fit text */
+        max-width: 220px;
         margin-right: 4px;
         background: var(--bg-container);
         color: var(--text-main);
-        flex-shrink: 1; /* Allow shrinking if needed on mobile */
+        flex-shrink: 1;
     }
 
     .sep { width: 1px; height: 18px; background: var(--border-color); margin: 0 4px; }
@@ -222,7 +231,6 @@
         gap: 15px; 
     }
 
-    /* Wrapper of Circle : Default Size */
     .circle-wrapper { width: 280px; height: 280px; position: relative; user-select: none; }
     
     svg { width: 100%; height: 100%; overflow: visible; }
@@ -233,15 +241,9 @@
     .circle-wrapper.mode-major .sector-text { font-weight: bold; }
     .circle-wrapper.mode-minor .sector-text-inner { font-weight: bold; fill: var(--text-main); }
     
-    /* Highlight Classes */
     .highlight-diatonic { fill: var(--hl-diatonic) !important; stroke: var(--hl-diatonic-border) !important; stroke-width: 1.5px !important; }
-    
     .highlight-tritone { fill: var(--hl-tritone) !important; stroke: var(--hl-tritone-border) !important; stroke-width: 1px !important; stroke-dasharray: 4 2; }
     
-    /* Root Border removed as requested, just keeping structure if needed later */
-    .highlight-root { stroke: var(--hl-root-border) !important; stroke-width: 0px !important;  }
-    
-    /* ACTIVE CHORD */
     path.highlight-active { 
         fill: var(--hl-active-chord) !important; 
         stroke: var(--hl-active-chord-stroke) !important; 
@@ -251,6 +253,12 @@
 
     .handle-group { cursor: grab; } .handle-group:active { cursor: grabbing; }
     .handle-knob { stroke: #999; stroke-width: 1px; } .handle-arrow { fill: var(--arrow-color); pointer-events: none; } .handle-hit { fill: transparent; }
+
+    /* Center Button Styles */
+    .center-btn-group { cursor: pointer; }
+    .center-btn-circle { fill: var(--btn-center-bg); stroke: var(--btn-center-stroke); stroke-width: 2px; transition: fill 0.2s; }
+    .center-btn-group:hover .center-btn-circle { fill: var(--btn-center-hover); }
+    .center-btn-text { font-size: 13px; font-weight: bold; fill: var(--btn-center-text); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
 
     .key-group { display: flex;  flex-direction: column;  align-items: center;  gap: 5px;  width: 140px;  margin-bottom: 5px; }
     .key-display { font-size: 24px;  font-weight: bold;  text-align: center;  width: 100%;  white-space: nowrap;  height: 32px;  line-height: 32px; }
@@ -267,39 +275,19 @@
     .st-acc-custom { fill: none; stroke: var(--cof-staff-stroke); stroke-linecap: round; stroke-linejoin: round; }
     .st-brace { stroke: var(--cof-staff-stroke); stroke-width: 2; }
 
-    /* === RESPONSIVE LAYOUT LOGIC === */
-    /* Mobile / Portrait (< 600px) */
+    /* === Responsive === */
     @media (max-width: 600px) {
-        .cof-layout-container {
-            flex-direction: column-reverse; 
-            gap: 10px;
-        }
-        .cof-controls-col {
-            flex-direction: column;
-            gap: 5px;
-        }
-        /* Mobile: Maximize Circle Width */
-        .circle-wrapper { 
-            width: 90vw; 
-            max-width: 380px; 
-            height: auto; 
-            aspect-ratio: 1 / 1; 
-            margin-bottom: 5px; 
-        }
+        .cof-layout-container { flex-direction: column-reverse; gap: 10px; }
+        .cof-controls-col { flex-direction: column; gap: 5px; }
+        .circle-wrapper { width: 90vw; max-width: 380px; height: auto; aspect-ratio: 1 / 1; margin-bottom: 5px; }
         .key-display { font-size: 18px; }
         .staff-box { width: 120px; height: 75px; }
         .header-title { font-size: 14px; }
         .header-meta { display: none; } 
     }
-
-    /* Landscape / Desktop (>= 601px) */
     @media (min-width: 601px) {
-        .cof-layout-container {
-            flex-direction: row;
-        }
-        .cof-controls-col {
-            align-items: flex-start;
-        }
+        .cof-layout-container { flex-direction: row; }
+        .cof-controls-col { align-items: flex-start; }
     }
 
     /* === Table Area === */
@@ -316,7 +304,6 @@
     body.dark-mode .col-key .editable-cell { color: #64b5f6; }
     .mono-col { font-family: 'Consolas', monospace; font-size: 11px; }
     .btn-action { width: 20px; height: 20px; border: 1px solid var(--border-color); background: var(--btn-bg); color: var(--btn-text); cursor: pointer; border-radius: 3px; font-size: 10px; }
-
 </style>
 </head>
 <body>
@@ -324,29 +311,31 @@
     <div class="header-left">
         <div class="header-title">JCSC</div>
         <div class="header-meta">
-            <div>(c) 2025 GoodRelax. MIT License.</div>
-            <a href="https://github.com/GoodRelax/Music" target="_blank" class="header-link">Jump to Development on GitHub</a>
+            <div>Jazz Chord and Scale Calculator</div>
+            <a href="https://github.com/GoodRelax/Music" target="_blank" class="header-link">(c) 2025 GoodRelax. MIT License.</a>
         </div>
     </div>
     <div class="header-controls">
-        <button class="btn-std" onclick="toggleFullScreen()" title="Full Screen">FS</button>
+        <button class="btn-std" id="btn-sus" onclick="toggleSustain()" title="Toggle Sustain Mode">Sus</button>
+        <div class="sep"></div>
+
         <button class="btn-std active" id="btn-show-key" onclick="switchVisualizer('keyboard')" title="Show Keyboard">KB</button>
         <button class="btn-std" id="btn-show-cof" onclick="switchVisualizer('cof')" title="Show Circle of Fifths">CoF</button>
-        
+        <div class="sep"></div>
+
+        <button class="btn-std" onclick="toggleAllDark()">Dark</button>
+        <button class="btn-std" onclick="toggleFullScreen()" title="Full Screen">FS</button>
         <div class="sep"></div>
         
         <select id="presetSelect" class="header-select" onchange="jcscApp.loadPreset()"></select>
-        
         <div class="sep"></div>
 
         <button class="btn-std" onclick="jcscApp.copyTSV()">Copy</button>
-        <button class="btn-std" onclick="toggleAllDark()">Dark</button>
         <button class="btn-std" onclick="deselectAll()">CLR</button>
     </div>
 </header>
 
 <div class="visualizer-section" id="visualizerSection">
-    
     <div id="view-keyboard" class="view-container active">
         <div class="keyboard-container"><div id="keyboard" class="keyboard"></div></div>
         <div class="legend">
@@ -357,13 +346,11 @@
             <div class="legend-item"><span class="l-circle l-scale"></span> Scale</div>
         </div>
     </div>
-
     <div id="view-cof" class="view-container">
         <div class="cof-layout-container">
             <div class="cof-visual-col">
                 <div class="circle-wrapper" id="circleWrapper"></div>
             </div>
-
             <div class="cof-controls-col">
                 <div class="key-group">
                     <div class="key-display" id="keyNameDisplay">Key : C</div>
@@ -376,7 +363,6 @@
             </div>
         </div>
     </div>
-
 </div>
 
 <div class="main-content">
@@ -403,6 +389,18 @@
 <script>
 // === UI Logic ===
 let currentVis = 'keyboard';
+let isSustainMode = false;
+
+function toggleSustain() {
+    isSustainMode = !isSustainMode;
+    const btn = document.getElementById('btn-sus');
+    if (isSustainMode) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
+        if (typeof audioApp !== 'undefined') audioApp.stopAll();
+    }
+}
 
 function switchVisualizer(mode) {
     const section = document.getElementById('visualizerSection');
@@ -437,18 +435,12 @@ function switchVisualizer(mode) {
 function toggleFullScreen() {
     const doc = window.document;
     const docEl = doc.documentElement;
-
     const request = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
     const cancel = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
 
     if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
-        if (request) {
-            request.call(docEl).catch(err => {
-                document.body.classList.toggle('is-fullscreen');
-            });
-        } else {
-            document.body.classList.toggle('is-fullscreen');
-        }
+        if (request) request.call(docEl).catch(err => { document.body.classList.toggle('is-fullscreen'); });
+        else document.body.classList.toggle('is-fullscreen');
     } else {
         if (cancel) cancel.call(doc);
         document.body.classList.remove('is-fullscreen');
@@ -473,7 +465,6 @@ function deselectAll() {
     cofApp.jumpTo(0); 
     document.getElementById('keyNameDisplay').innerText = "Key : C";
     setTimeout(() => cofApp.updateKey(null), 100); 
-    // Stop all sounds
     if(typeof audioApp !== 'undefined') audioApp.stopAll();
 }
 
@@ -494,7 +485,6 @@ const AbsoluteLocationMap = {
     "Eb":{ idx: 9, ring: 'major', mode: 'FLAT' },
     "Bb":{ idx: 10, ring: 'major', mode: 'FLAT' },
     "F": { idx: 11, ring: 'major', mode: 'FLAT' },
-
     "Am": { idx: 0, ring: 'minor', mode: 'NATURAL' },
     "Em": { idx: 1, ring: 'minor', mode: 'SHARP' },
     "Bm": { idx: 2, ring: 'minor', mode: 'SHARP' },
@@ -535,17 +525,13 @@ function onRowHighlight(keyStr, chordStr) {
         if (cIsMinor) chordNameForLookup += "m"; 
         let cDef = AbsoluteLocationMap[chordNameForLookup];
         
-        cofApp.updateKey({ 
-            idx: cDef ? cDef.idx : -1, 
-            ring: cDef ? cDef.ring : 'major' 
-        });
+        cofApp.updateKey({ idx: cDef ? cDef.idx : -1, ring: cDef ? cDef.ring : 'major' });
     } else {
         cofApp.updateKey(null);
     }
 }
 
 // --- JCSC LOGIC ---
-// --- JCSC LOGIC (Database Updated) ---
 const jcscDB = {
     "intervals": [
         {"IntervalID":"P1","DeltaSemitone":"0","DeltaDegree":"0"},
@@ -639,7 +625,6 @@ const jcscDB = {
     ],
     "rules": [
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"M7","ScaleName":"Lydian","HarmonicFunction":"T","UsageType":"Alt"},
-        {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"M7","ScaleName":"Okinawa","HarmonicFunction":"T","UsageType":"Alt"},
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"7","ScaleName":"Mixolydian","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"A1","ChordSymbol":"dim7","ScaleName":"W-H Diminished","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"P1","ChordSymbol":"M6","ScaleName":"Ionian","HarmonicFunction":"T","UsageType":"Main"},
@@ -707,7 +692,6 @@ const jcscDB = {
         {"KeyType":"Major","DegreeIntervalID":"m7","ChordSymbol":"M7","ScaleName":"Lydian","HarmonicFunction":"SD","UsageType":"Main"},
         {"KeyType":"Major","DegreeIntervalID":"M7","ChordSymbol":"m7b5","ScaleName":"Locrian","HarmonicFunction":"D","UsageType":"Main"},
         {"KeyType":"Minor","DegreeIntervalID":"P1","ChordSymbol":"m7","ScaleName":"Aeolian","HarmonicFunction":"T","UsageType":"Alt"},
-        {"KeyType":"Minor","DegreeIntervalID":"P1","ChordSymbol":"m7","ScaleName":"Japanese (Hirajoshi)","HarmonicFunction":"T","UsageType":"Alt"},
         {"KeyType":"Minor","DegreeIntervalID":"P1","ChordSymbol":"m","ScaleName":"Aeolian","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Minor","DegreeIntervalID":"P1","ChordSymbol":"m6","ScaleName":"Melodic Minor","HarmonicFunction":"T","UsageType":"Main"},
         {"KeyType":"Minor","DegreeIntervalID":"P1","ChordSymbol":"m7","ScaleName":"Dorian","HarmonicFunction":"T","UsageType":"Main"},
@@ -923,7 +907,6 @@ class TheoryEngine {
 const jcscEngine = new TheoryEngine();
 
 // === Sound Engine (Web Audio API) ===
-// === Sound Engine (Web Audio API) ===
 class SoundEngine {
     constructor() {
         this.ctx = null;
@@ -1001,30 +984,32 @@ class SoundEngine {
         Object.keys(this.activeVoices).forEach(id => this.stopTone(id));
     }
 
-    // --- High Level Functions ---
-
     _getBestOctave(semitone) {
         return (semitone >= 7) ? 3 : 4;
     }
 
-    // Updated: Slower tempo for checking by ear
-    playArpeggio(semitones, sustain = true, keySemi = 0, stopPrevious = true, volume = 0.2) {
+    playArpeggio(semitones, sustain = true, keySemi = 0, stopPrevious = true, baseOctave = null) {
         if (stopPrevious) this.stopAll(); 
         if (!semitones.length) return;
 
         const startNote = semitones[0];
-        const startOctave = this._getBestOctave(startNote);
-        const sequence = this._buildRisingSequence(semitones, startOctave); 
+        
+        let startOct;
+        if (baseOctave !== null) {
+            startOct = baseOctave;
+        } else {
+            startOct = this._getBestOctave(startNote);
+        }
+
+        const sequence = this._buildRisingSequence(semitones, startOct); 
 
         sequence.forEach((note, i) => {
             const freq = this.getFreq(note.s, note.oct);
             const voiceId = `chord-${i}`;
-            
-            // Change: Slow down arpeggio (100ms per note = approx 16th note at BPM 60)
             const delay = i * 100; 
 
             const timerId = setTimeout(() => {
-                this.startTone(freq, voiceId, 'triangle', volume);
+                this.startTone(freq, voiceId, 'triangle', 0.2);
                 if (!sustain) {
                    setTimeout(() => this.stopTone(voiceId, 0.1), 800); 
                 }
@@ -1033,7 +1018,6 @@ class SoundEngine {
         });
     }
 
-    // Updated: Slower tempo (BPM 60)
     playScaleLoop(scaleObjs, stopPrevious = true, volume = 0.2) {
         if (stopPrevious) this.stopAll();
         if (!scaleObjs.length) return;
@@ -1060,7 +1044,6 @@ class SoundEngine {
             const prevId = `scale-loop`;
             const note = fullSequence[idx];
             
-            // Change: BPM 60 (1 beat = 667ms)
             // Swing Ratio 2:1 -> 444ms : 223ms
             const isDownbeat = (idx % 2 === 0);
             const noteDurationMs = isDownbeat ? 444 : 223; 
@@ -1070,7 +1053,6 @@ class SoundEngine {
                 const freq = this.getFreq(note.s, note.oct);
                 this.startTone(freq, prevId, 'sine', volume, noteDurationSec * 0.95);
             } else {
-                // Avoid Note (Ghost note)
                 const freq = this.getFreq(note.s, note.oct);
                 this.startTone(freq, prevId, 'sine', volume * 0.3, noteDurationSec * 0.4);
             }
@@ -1084,9 +1066,7 @@ class SoundEngine {
 
     playChordAndScale(chordTones, scaleObjs, keySemi) {
         this.stopAll();
-        // Play Chord Background (Low volume)
-        this.playArpeggio(chordTones, true, keySemi, false, 0.05);
-        // Play Scale Lead (Standard volume)
+        this.playArpeggio(chordTones, true, keySemi, false, null); // null baseOctave
         this.playScaleLoop(scaleObjs, false, 0.2);
     }
 
@@ -1151,7 +1131,6 @@ const jcscApp = {
         const sel = document.getElementById('presetSelect');
         if(!sel) return;
         
-        // Add a placeholder option at the top
         const defaultOpt = document.createElement('option');
         defaultOpt.text = "Select Progression...";
         defaultOpt.value = "-1";
@@ -1170,26 +1149,16 @@ const jcscApp = {
     loadPreset() {
         const sel = document.getElementById('presetSelect');
         const idx = parseInt(sel.value);
-        
-        if (idx === -1 || isNaN(idx)) return; // Handle placeholder
+        if (idx === -1 || isNaN(idx)) return;
 
         const preset = chordPresets[idx];
         if (!preset) return;
 
-        // Split by " - ", " – ", or " / " (space + separator + space)
-        // This regex preserves "C/E" (no spaces) but splits "E7 / Fmaj7"
         const chords = preset.seq.split(/\s+(?:–|-|\/)\s+/);
-
-        this.rows = chords.map(c => {
-            // Basic cleanup
-            return { key: preset.key, chord: c.trim() };
-        });
+        this.rows = chords.map(c => { return { key: preset.key, chord: c.trim() }; });
 
         this.renderTable();
-        // Reset CoF view to the new key
         onRowHighlight(preset.key, this.rows[0].chord);
-        
-        // Remove focus from select so keyboard shortcuts work on table
         sel.blur();
     },
 
@@ -1252,11 +1221,6 @@ const jcscApp = {
         });
         
         this.renderTable();
-        const selected = document.querySelector('.selected-row');
-        if(selected) {
-            // Re-trigger highlight to update CoF without playing sound again (optional)
-            // But transpose usually happens via CoF drag which already handles sound logic if needed
-        }
     },
 
     copyTSV() {
@@ -1269,16 +1233,43 @@ const jcscApp = {
         });
         navigator.clipboard.writeText(tsv).then(() => { alert("Copied to clipboard!"); });
     },
+
+    calculateBassNote(rootSemi, keySemi, chordTones) {
+        const semiToCoF = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
+        const rootCoF = semiToCoF[rootSemi];
+        const keyCoF = semiToCoF[keySemi];
+
+        let diff = rootCoF - keyCoF;
+        if (diff > 6) diff -= 12;
+        if (diff <= -6) diff += 12;
+
+        // --- Voice Leading Rules ---
+        // diff +1 (V) -> 1st Inv (3rd bass)
+        // diff -1 (IV) -> 2nd Inv (5th bass)
+        // diff +4 (iii) -> 2nd Inv (5th bass)
+        // Others -> Root
+        if (diff === 1) {
+            return chordTones.find(s => {
+                const d = (s - rootSemi + 12) % 12;
+                return d === 3 || d === 4; 
+            }) ?? rootSemi;
+        } else if (diff === -1 || diff === 4) {
+            return chordTones.find(s => {
+                const d = (s - rootSemi + 12) % 12;
+                return d === 7; 
+            }) ?? rootSemi;
+        } else {
+            return rootSemi;
+        }
+    },
+
     renderTable() {
         const tbody = document.querySelector('#mainTable tbody');
         tbody.innerHTML = '';
         
-        const semiToCoF = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
-
         this.rows.forEach((row, i) => {
             const analysis = jcscEngine.analyze(row.key, row.chord);
             const tr = document.createElement('tr');
-            // PC用クリックイベント（変更なし）
             tr.onclick = () => jcscApp.highlightRow(i);
 
             const actions = `
@@ -1290,51 +1281,22 @@ const jcscApp = {
             const chordParts = jcscEngine.splitChord(row.chord);
             const rootStruct = jcscEngine.parseNoteStruct(chordParts.root);
             const rootSemi = rootStruct ? rootStruct.semitone : 0; 
-            
             const keyStruct = jcscEngine.parseNoteStruct(row.key.replace('m','')); 
             const keySemi = keyStruct ? keyStruct.semitone : 0; 
-
-            // --- CoF Calculation for Chord Inversion ---
-            const rootCoF = semiToCoF[rootSemi];
-            const keyCoF = semiToCoF[keySemi];
-
-            let diff = rootCoF - keyCoF;
-            if (diff > 6) diff -= 12;
-            if (diff <= -6) diff += 12;
 
             // --- Collect Tones ---
             let chordTones = [];
             let scaleTones = []; 
-            
             if (analysis.keyboardMap) {
                 Object.keys(analysis.keyboardMap).forEach(k => {
                     const semi = parseInt(k);
                     const mapData = analysis.keyboardMap[semi];
-                    
                     if (mapData.isChord) chordTones.push(semi);
-                    
-                    scaleTones.push({
-                        s: semi,
-                        isAvoid: (mapData.dotType === 'avoid')
-                    });
+                    scaleTones.push({ s: semi, isAvoid: (mapData.dotType === 'avoid') });
                 });
             }
 
-            // --- Determine Base Note for CHORD (Inversion Rule) ---
-            let chordBaseNote = rootSemi; 
-            if (diff === 0) {
-                chordBaseNote = rootSemi;
-            } else if (diff === -1) {
-                chordBaseNote = chordTones.find(s => {
-                    const d = (s - rootSemi + 12) % 12;
-                    return d === 7; 
-                }) ?? rootSemi;
-            } else {
-                chordBaseNote = chordTones.find(s => {
-                    const d = (s - rootSemi + 12) % 12;
-                    return d === 3 || d === 4; 
-                }) ?? rootSemi;
-            }
+            const chordBaseNote = this.calculateBassNote(rootSemi, keySemi, chordTones);
 
             // --- Reorder Logic ---
             const reorderNumbers = (tones, base) => {
@@ -1344,7 +1306,6 @@ const jcscApp = {
                     return distA - distB;
                 });
             };
-            
             const reorderObjects = (tones, base) => {
                 return tones.sort((a, b) => {
                     const distA = (a.s - base + 12) % 12;
@@ -1353,14 +1314,13 @@ const jcscApp = {
                 });
             };
 
-            // Apply Sort:
             chordTones = reorderNumbers(chordTones, chordBaseNote);
             scaleTones = reorderObjects(scaleTones, rootSemi);
 
             const chordData = JSON.stringify(chordTones);
             const scaleData = JSON.stringify(scaleTones).replace(/"/g, '&quot;');
+            const stopLogic = "if(!isSustainMode) audioApp.stopAll()";
 
-            // ★修正ポイント: ontouchstart に jcscApp.highlightRow(${i}) を追加して強制的に選択を実行させる
             tr.innerHTML = `
                 <td>${i + 1}</td>
                 <td class="col-key">
@@ -1375,31 +1335,28 @@ const jcscApp = {
                 </td>
                 <td>${analysis.roman}</td>
                 <td>${analysis.func}</td>
-                
                 <td style="cursor: help;"
                     onmousedown="audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
-                    onmouseup="audioApp.stopAll()"
-                    onmouseleave="audioApp.stopAll()"
+                    onmouseup="${stopLogic}"
+                    onmouseleave="${stopLogic}"
                     ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
-                    ontouchend="event.preventDefault(); audioApp.stopAll()"
+                    ontouchend="event.preventDefault(); ${stopLogic}"
                     title="Click/Hold to play Chord & Scale">${analysis.scaleName}</td>
-                
                 <td class="mono-col"
                     style="cursor: help;"
                     onmousedown="audioApp.playArpeggio(${chordData}, true, ${keySemi})"
-                    onmouseup="audioApp.stopAll()"
-                    onmouseleave="audioApp.stopAll()"
+                    onmouseup="${stopLogic}"
+                    onmouseleave="${stopLogic}"
                     ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playArpeggio(${chordData}, true, ${keySemi})"
-                    ontouchend="event.preventDefault(); audioApp.stopAll()"
+                    ontouchend="event.preventDefault(); ${stopLogic}"
                     title="Click/Hold to play (Auto Inversion)">${analysis.chordTonesDisplay}</td>
-                    
                 <td class="mono-col"
                     style="cursor: help;"
                     onmousedown="audioApp.playScaleLoop(${scaleData})"
-                    onmouseup="audioApp.stopAll()"
-                    onmouseleave="audioApp.stopAll()"
+                    onmouseup="${stopLogic}"
+                    onmouseleave="${stopLogic}"
                     ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playScaleLoop(${scaleData})"
-                    ontouchend="event.preventDefault(); audioApp.stopAll()"
+                    ontouchend="event.preventDefault(); ${stopLogic}"
                     title="Click/Hold to play Scale (Swing)">${analysis.scaleTonesDisplay}</td>
                 <td style="text-align:center;">${actions}</td>
             `;
@@ -1407,9 +1364,6 @@ const jcscApp = {
         });
     },
     highlightRow(index) {
-        // REMOVED stopAll() to allow mousedown events to persist sound 
-        // while the row is being selected/focused.
-
         const row = this.rows[index];
         if (!row) return;
 
@@ -1423,12 +1377,11 @@ const jcscApp = {
     },
     setupKeyboardUI() {
         const kb = document.getElementById('keyboard');
-        kb.innerHTML = ''; // Clear existing
+        kb.innerHTML = ''; 
         const notes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
         const isBlack = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0];
         const baseOctave = 3; 
 
-        // Helper to bind events
         const createKey = (semi, oct, label) => {
             const type = isBlack[semi] ? 'black' : 'white';
             const el = document.createElement('div');
@@ -1440,27 +1393,14 @@ const jcscApp = {
             labelDiv.textContent = label;
             el.appendChild(labelDiv);
 
-            // Unique ID for this key's voice
             const voiceId = `key-${oct}-${semi}`;
             const freq = audioApp.getFreq(semi, oct);
 
-            // Mouse Events
-            el.addEventListener('mousedown', (e) => {
-                e.preventDefault(); // Prevent text selection
-                audioApp.startTone(freq, voiceId);
-            });
-            el.addEventListener('mouseup', () => audioApp.stopTone(voiceId));
-            el.addEventListener('mouseleave', () => audioApp.stopTone(voiceId));
-
-            // Touch Events (for mobile)
-            el.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                audioApp.startTone(freq, voiceId);
-            }, {passive: false});
-            el.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                audioApp.stopTone(voiceId);
-            });
+            el.addEventListener('mousedown', (e) => { e.preventDefault(); audioApp.startTone(freq, voiceId); });
+            el.addEventListener('mouseup', () => { if (!isSustainMode) audioApp.stopTone(voiceId); });
+            el.addEventListener('mouseleave', () => { if (!isSustainMode) audioApp.stopTone(voiceId); });
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); audioApp.startTone(freq, voiceId); }, {passive: false});
+            el.addEventListener('touchend', (e) => { e.preventDefault(); if (!isSustainMode) audioApp.stopTone(voiceId); });
 
             return el;
         };
@@ -1470,7 +1410,6 @@ const jcscApp = {
                 kb.appendChild(createKey(i, baseOctave + oct, notes[i]));
             }
         }
-        // Final C
         kb.appendChild(createKey(0, baseOctave + 3, 'C'));
     },
     updateKeyboard(map) {
@@ -1479,7 +1418,7 @@ const jcscApp = {
             k.classList.remove('chord-bg');
             const oldDot = k.querySelector('.dot');
             if(oldDot) oldDot.remove();
-            const semi = parseInt(k.dataset.semi); // Use dataset
+            const semi = parseInt(k.dataset.semi); 
             if (map && map[semi]) {
                 const data = map[semi];
                 if (data.isChord) k.classList.add('chord-bg');
@@ -1492,7 +1431,6 @@ const jcscApp = {
         });
     }
 };
-
 
 jcscApp.init();
 
@@ -1549,6 +1487,7 @@ const CircleUI = {
         document.getElementById('circleWrapper').appendChild(this.svg);
         this.renderWheel();
         this.renderHandle();
+        this.renderCenterButton();
         this.updateRotation(0);
         this.setupDrag();
     },
@@ -1569,7 +1508,22 @@ const CircleUI = {
         path.setAttribute("d", this.arcPath(this.cx, this.cy, rIn, rOut, start, end));
         path.setAttribute("class", `sector sector-${type}`);
         path.setAttribute("data-idx", i);
-        path.onclick = () => cofApp.jumpTo(i);
+        
+        const startSound = (e) => {
+            e.preventDefault(); 
+            e.stopPropagation();
+            cofApp.playSectorChord(i, type);
+        };
+        const endSound = (e) => {
+            if(!isSustainMode) audioApp.stopAll();
+        };
+
+        path.onmousedown = startSound;
+        path.onmouseup = endSound;
+        path.onmouseleave = endSound;
+        path.ontouchstart = startSound;
+        path.ontouchend = endSound;
+
         g.appendChild(path);
         const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
         txt.textContent = text;
@@ -1580,6 +1534,7 @@ const CircleUI = {
         const rad = (deg - 90) * Math.PI / 180;
         txt.setAttribute("x", this.cx + rTxt * Math.cos(rad));
         txt.setAttribute("y", this.cy + rTxt * Math.sin(rad));
+        txt.setAttribute("pointer-events", "none"); 
         g.appendChild(txt);
         return g;
     },
@@ -1606,6 +1561,29 @@ const CircleUI = {
         knob.setAttribute("cx", 0); knob.setAttribute("cy", -hRad); knob.setAttribute("r", 14); knob.setAttribute("fill", "url(#knobGrad)"); knob.setAttribute("class", "handle-knob");
         this.handleG.appendChild(knob);
         this.svg.appendChild(this.handleG);
+    },
+    renderCenterButton() {
+        const rBtn = 35;
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "center-btn-group");
+        g.onclick = () => cofApp.toggleChordMode();
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", this.cx);
+        circle.setAttribute("cy", this.cy);
+        circle.setAttribute("r", rBtn);
+        circle.setAttribute("class", "center-btn-circle");
+        g.appendChild(circle);
+
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", this.cx);
+        txt.setAttribute("y", this.cy);
+        txt.setAttribute("class", "center-btn-text");
+        txt.setAttribute("id", "centerBtnText");
+        txt.textContent = "Triad";
+        g.appendChild(txt);
+
+        this.svg.appendChild(g);
     },
     createThornArrow(radius, startDeg, endDeg) {
         const degToRad = d => d * Math.PI / 180; const wBase = 4; const p = (r, deg) => ({ x: r * Math.cos(degToRad(deg)), y: r * Math.sin(degToRad(deg)) });
@@ -1726,6 +1704,100 @@ const cofApp = {
     currentMode: 'NATURAL',
     activeChord: null,
     dragStartIdx: -1, 
+    is7thMode: false,
+
+    toggleChordMode() {
+        this.is7thMode = !this.is7thMode;
+        document.getElementById('centerBtnText').textContent = this.is7thMode ? "7th" : "Triad";
+    },
+
+    playSectorChord(idx, type) {
+        const info = cofTheory.getKeyInfo(CircleUI.activeStep, false, this.currentMode);
+
+        const circleRootIdx = info.idx; 
+        const centerKeyStruct = jcscEngine.parseNoteStruct(info.label.replace('m',''));
+        const centerKeySemi = centerKeyStruct ? centerKeyStruct.semitone : 0;
+
+        let keyDist = centerKeySemi - 0;
+        if (keyDist > 6) keyDist -= 12;
+        if (keyDist <= -6) keyDist += 12;
+
+        if (centerKeySemi === 6) {
+            if (this.currentMode === 'FLAT') keyDist = -6;
+            else keyDist = 6;
+        }
+        const keyCenterHeight = keyDist;
+
+        let diff = idx - circleRootIdx;
+        if (diff > 6) diff -= 12;
+        if (diff <= -6) diff += 12;
+
+        const chordInfo = cofTheory.getKeyInfo(idx, type === 'minor', this.currentMode);
+        let chordName = chordInfo.label; 
+
+        let suffix = "";
+        if (this.is7thMode) {
+            if (type === 'minor') {
+                if (!chordName.includes("m")) suffix = "m7";
+                else if (chordName.endsWith("m")) suffix = "7";
+            } else {
+                if (diff === 1) suffix = "7"; 
+                else if (diff === 5 || diff === -7) suffix = "m7b5";
+                else if (diff === 0 || diff === -1) suffix = "M7";
+                else suffix = "7";
+            }
+        } else {
+            if (type === 'major') {
+                if (diff === 5 || diff === -7) suffix = "dim";
+                else suffix = "";
+            }
+        }
+
+        let finalChord = chordName;
+        if (suffix) {
+            if (chordName.endsWith("m") && suffix.startsWith("m")) {} 
+            else if (!chordName.endsWith("m") && suffix === "m7b5") finalChord = chordName + suffix;
+            else finalChord = chordName + suffix;
+        }
+
+        const keyName = info.label;
+        const analysis = jcscEngine.analyze(keyName, finalChord);
+
+        let tones = [];
+        if (analysis.keyboardMap) {
+            Object.keys(analysis.keyboardMap).forEach(k => {
+                if(analysis.keyboardMap[k].isChord) tones.push(parseInt(k));
+            });
+        }
+
+        const chordRootStruct = jcscEngine.parseNoteStruct(jcscEngine.splitChord(finalChord).root);
+        const keyRootStruct = jcscEngine.parseNoteStruct(keyName);
+
+        if (chordRootStruct && keyRootStruct && tones.length > 0) {
+            const rootSemi = chordRootStruct.semitone;
+            const keySemi = keyRootStruct.semitone;
+
+            // Voice Leading (Bass Note)
+            const baseNote = jcscApp.calculateBassNote(rootSemi, keySemi, tones);
+
+            // Sort Tones
+            tones.sort((a, b) => {
+                const dA = (a - baseNote + 12) % 12;
+                const dB = (b - baseNote + 12) % 12;
+                return dA - dB;
+            });
+
+            const posOct3 = baseNote - 12;
+            const posOct4 = baseNote;
+
+            const dist3 = Math.abs(posOct3 - keyCenterHeight);
+            const dist4 = Math.abs(posOct4 - keyCenterHeight);
+
+            const targetOctave = (dist3 <= dist4) ? 3 : 4;
+
+            audioApp.playArpeggio(tones, true, keySemi, true, targetOctave);
+        }
+    },
 
     onDragStart() {
         const info = cofTheory.getKeyInfo(CircleUI.activeStep, this.isMinor, this.currentMode);
