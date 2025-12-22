@@ -4,8 +4,42 @@
 <meta charset="UTF-8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>JCSC</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+<title>JCSC - Jazz Chord and Scale Calculator | Interactive Circle of Fifths</title>
+<meta name="description" content="Free online music theory tool. Analyze jazz chord progressions, visualize the Circle of Fifths, play chord scales, and calculate available tensions interactively.">
+<meta name="keywords" content="Jazz, Music Theory, Chord Scale Calculator, Circle of Fifths, Web Audio, Piano Visualizer, Modal Interchange">
+<meta name="author" content="GoodRelax">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://goodrelax.github.io/Music/"> <meta property="og:title" content="JCSC - Jazz Chord and Scale Calculator">
+<meta property="og:description" content="Interactive tool for jazz harmony. Visualize chords, scales, and the Circle of Fifths in your browser.">
+<meta property="og:image" content="https://goodrelax.github.io/Music/jcsc.png"> <meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:title" content="JCSC - Jazz Chord and Scale Calculator">
+<meta property="twitter:description" content="Interactive tool for jazz harmony. Visualize chords, scales, and the Circle of Fifths in your browser.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "JCSC",
+  "alternateName": "Jazz Chord and Scale Calculator",
+  "url": "https://goodrelax.github.io/Music/",
+  "applicationCategory": "MusicApplication",
+  "operatingSystem": "Any",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "description": "A browser-based tool for analyzing jazz harmony, visualizing the Circle of Fifths, and calculating chord scales with audio playback.",
+  "author": {
+    "@type": "Person",
+    "name": "GoodRelax"
+  }
+}
+</script>
+
 <style>
     /* =========================================
        1. Common Variables
@@ -111,11 +145,25 @@
     }
 
     /* === Base Layout === */
+    html {
+        height: -webkit-fill-available;
+    }
     body { 
         font-family: 'Segoe UI', Helvetica, Arial, sans-serif; 
         background: var(--bg-body); 
         margin: 0; padding: 0; color: var(--text-main); 
-        height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        
+        width: 100vw;
+        
+        display: flex; flex-direction: column; 
+        
+        overflow: hidden;
+        position: fixed; 
+        top: 0; left: 0; right: 0; bottom: 0;
+
         transition: background 0.3s, color 0.3s;
         -webkit-user-select: none;
         user-select: none;
@@ -188,18 +236,27 @@
 
     /* --- Keyboard Styles --- */
     .keyboard-container { overflow-x: auto; display: flex; justify-content: center; width: 100%; padding-bottom: 10px; }
-    .keyboard { display: flex; position: relative; height: 80px; padding-top: 5px; width: max-content; }
+    .keyboard { display: flex; position: relative; height: 110px; padding-top: 5px; width: max-content; }
     .key { border: 1px solid #999; border-radius: 0 0 3px 3px; position: relative; z-index: 1; display: flex; justify-content: center; cursor: pointer; }
     .key:active { transform: translateY(2px); box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
-    .key.white { width: 30px; height: 75px; background: var(--key-white); }
-    .key.black { width: 20px; height: 45px; background: var(--key-black); margin-left: -10px; margin-right: -10px; z-index: 2; border-radius: 0 0 2px 2px; }
+    .key.white { width: 30px; height: 100px; background: var(--key-white); }
+    .key.black { 
+        width: 22px; 
+        height: 60px; 
+        background: var(--key-black); 
+        margin-left: -11px; 
+        margin-right: -11px; 
+        z-index: 2; 
+        border-radius: 0 0 2px 2px;
+        box-shadow: inset 1px -1px 1px rgba(255,255,255,0.2), 1px 1px 3px rgba(0,0,0,0.5);
+    }
     .key.white.chord-bg { background: var(--chord-bg) !important; } 
     .key.black.chord-bg { background: var(--chord-bg) !important; border-color: var(--chord-border); }
-    .key-label { position: absolute; bottom: 2px; width: 100%; text-align: center; font-size: 8px; color: #aaa; pointer-events: none; }
+    .key-label { position: absolute; bottom: 4px; width: 100%; text-align: center; font-size: 9px; color: #aaa; pointer-events: none; }
     .key.black .key-label { display: none; }
-    .dot { position: absolute; width: 8px; height: 8px; border-radius: 50%; bottom: 12px; z-index: 5; border: 1px solid rgba(255,255,255,0.9); pointer-events: none; }
-    .key.black .dot { bottom: 6px; }
-    .dot.root { background: #d50000; transform: scale(1.2); }
+    .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; bottom: 18px; z-index: 5; border: 1px solid rgba(255,255,255,0.9); pointer-events: none; }
+    .key.black .dot { bottom: 8px; width: 9px; height: 9px; }
+    .dot.root { background: #d50000; transform: scale(1.1); }
     .dot.guide { background: #ef5350; }
     .dot.avoid { background: #795548; }
     .dot.scale { background: #ffcdd2; }
@@ -275,15 +332,87 @@
     .st-acc-custom { fill: none; stroke: var(--cof-staff-stroke); stroke-linecap: round; stroke-linejoin: round; }
     .st-brace { stroke: var(--cof-staff-stroke); stroke-width: 2; }
 
-    /* === Responsive === */
+/* === Responsive (Mobile Optimization) === */
     @media (max-width: 600px) {
-        .cof-layout-container { flex-direction: column-reverse; gap: 10px; }
-        .cof-controls-col { flex-direction: column; gap: 5px; }
-        .circle-wrapper { width: 90vw; max-width: 380px; height: auto; aspect-ratio: 1 / 1; margin-bottom: 5px; }
-        .key-display { font-size: 18px; }
-        .staff-box { width: 120px; height: 75px; }
+        /* Layout Container: 
+           Keep vertical stacking (Controls on top, Circle at bottom) 
+           to maximize circle width. 
+           Reduce gap to minimum.
+        */
+        .cof-layout-container { 
+            flex-direction: column-reverse; 
+            gap: 4px; 
+            padding: 0;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        /* Controls Column: 
+           Arrange Key info and Staff horizontally to save vertical space.
+           This allows the circle below to take up more screen real estate
+           without shrinking the staff size.
+        */
+        .cof-controls-col { 
+            flex-direction: row; 
+            flex-wrap: nowrap;
+            gap: 10px; 
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 0;
+            padding: 2px 0;
+        }
+
+        /* Circle Wrapper: 
+           Use full screen width (98vw) for easier touch interaction.
+        */
+        .circle-wrapper { 
+            width: 98vw; 
+            max-width: 400px; /* Prevent excessive size on tablets */
+            height: auto; 
+            aspect-ratio: 1 / 1; 
+            margin: 0 auto;
+        }
+
+        /* Key Display Group: Compact spacing */
+        .key-group { 
+            width: auto; 
+            margin-bottom: 0; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .key-display { 
+            font-size: 20px; 
+            height: 24px; 
+            line-height: 24px;
+            margin-bottom: 2px;
+        }
+
+        /* Toggle Buttons: Compact sizing */
+        .toggle-opt {
+            padding: 2px 10px;
+            font-size: 10px;
+        }
+
+        /* Staff Box (Clef): 
+           Maintain original size for readability as requested.
+           (Original size is 140px x 100px defined in .staff-box)
+        */
+        .staff-box { 
+            flex-shrink: 0; /* Do not shrink */
+            margin: 0;
+            /* Optional: slight scale if screen is extremely narrow (<320px) */
+            transform-origin: center;
+        }
+
+        /* Header adjustments to save space */
         .header-title { font-size: 14px; }
         .header-meta { display: none; } 
+        header { padding: 2px 5px; min-height: 36px; }
+        .btn-std { height: 24px; font-size: 10px; padding: 0 8px; }
+        .header-select { height: 24px; font-size: 10px; }
     }
     @media (min-width: 601px) {
         .cof-layout-container { flex-direction: row; }
@@ -304,15 +433,77 @@
     body.dark-mode .col-key .editable-cell { color: #64b5f6; }
     .mono-col { font-family: 'Consolas', monospace; font-size: 11px; }
     .btn-action { width: 20px; height: 20px; border: 1px solid var(--border-color); background: var(--btn-bg); color: var(--btn-text); cursor: pointer; border-radius: 3px; font-size: 10px; }
+
+    /* === Footer Navigation & About Modal === */
+    .footer-nav {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: 30px;
+        background: var(--bg-body);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between; /* Left and Right alignment */
+        z-index: 9990;
+        padding: 0 10px;
+    }
+
+    .footer-item {
+        /* Allow detail to sit nicely in flex container */
+        display: block;
+    }
+
+    .footer-trigger {
+        font-size: 11px;
+        line-height: 30px;
+        cursor: pointer;
+        color: var(--link-color);
+        font-weight: bold;
+        list-style: none; /* Hide default triangle */
+        opacity: 0.8;
+        white-space: nowrap;
+    }
+    .footer-trigger:hover { opacity: 1; text-decoration: underline; }
+    .footer-trigger::-webkit-details-marker { display: none; }
+
+    /* The Popup Content */
+    .about-content {
+        position: fixed;
+        bottom: 31px; /* Just above the footer */
+        left: 0; right: 0;
+        background: var(--bg-container);
+        border-top: 2px solid var(--link-color);
+        box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
+        max-height: 60vh;
+        overflow-y: auto;
+        padding: 15px 20px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text-main);
+        z-index: 10000;
+        /* Animation usually requires JS, but simple display toggle is fine */
+    }
+
+    .about-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;
+    }
+    .about-header h2 { margin: 0; font-size: 16px; }
+    .btn-close {
+        background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-sub);
+    }
+
+    .about-content h3 { font-size: 14px; margin: 10px 0 5px; color: var(--text-main); }
+    .about-content ul { padding-left: 20px; margin: 5px 0; }
+    .about-content li { margin-bottom: 4px; }
 </style>
 </head>
 <body>
 <header>
     <div class="header-left">
-        <div class="header-title">JCSC</div>
+        <h1 class="header-title">JCSC</h1>
         <div class="header-meta">
             <div>Jazz Chord and Scale Calculator</div>
-            <a href="https://github.com/GoodRelax/Music" target="_blank" class="header-link">(c) 2025 GoodRelax. MIT License.</a>
+            <a href="https://github.com/GoodRelax/Music" target="_blank" class="header-link" rel="noopener">(c) 2025 GoodRelax. MIT License.</a>
         </div>
     </div>
     <div class="header-controls">
@@ -906,6 +1097,70 @@ class TheoryEngine {
 }
 const jcscEngine = new TheoryEngine();
 
+/**
+ * Global Audio Configuration
+ * Centralized settings for volume, timing, and waveforms.
+ */
+/**
+ * Global Audio Configuration
+ * Centralized settings for volume, timing, waveforms, and filters.
+ */
+const AUDIO_CONFIG = {
+    // 1. Common Timing Settings
+    TIMING: {
+        ARPEGGIO_DELAY: 40,    // ms
+        ARPEGGIO_SUSTAIN: 800,  // ms
+        SCALE_SWING_BPM: 90,    // Beats Per Minute
+        SCALE_SWING_RATIO: 0.666
+    },
+    // 2. Common Envelope Settings
+    ENVELOPE: {
+        ATTACK: 0.01,   // seconds
+        RELEASE: 0.15   // seconds
+    },
+    // 3. Context-Specific Sound Settings
+    CONTEXTS: {
+        // A: Keyboard Interaction
+        KEYBOARD: {
+            volume: 0.3,
+            waveform: 'triangle',
+            cutoff: 3000 // Bright
+        },
+        // B: Table - Chord Column
+        TABLE_CHORD: {
+            volume: 0.2,
+            waveform: 'triangle',
+            cutoff: 1000 // Warm
+        },
+        // C: Table - Scale Column
+        TABLE_SCALE: {
+            volume: 0.2,
+            waveform: 'sawtooth',
+            cutoff: 1000 // Warm
+        },
+        // D: Table - Combined Play (The Chord Part)
+        TABLE_COMBO_CHORD: {
+            volume: 0.15, 
+            waveform: 'triangle',
+            cutoff: 1500   
+        },
+        // E: Table - Combined Play (The Scale Part)
+        TABLE_COMBO_SCALE: {
+            volume: 0.2, 
+            waveform: 'sawtooth',
+            cutoff: 1000  // Mellow lead
+        },
+        // F: Circle of Fifths Interaction
+        COF: {
+            volume: 0.2,
+            waveform: 'triangle',
+            cutoff: 1500
+        }
+    },
+    // Avoid note volume multiplier (relative to context volume)
+    AVOID_FACTOR: 0.05   
+};
+
 // === Sound Engine (Web Audio API) ===
 class SoundEngine {
     constructor() {
@@ -929,19 +1184,30 @@ class SoundEngine {
         return 440 * Math.pow(2, (noteNum - 69) / 12);
     }
 
-    startTone(freq, voiceId, type = 'triangle', volume = 0.2, duration = 0) {
+    // UPDATED: Now accepts 'cutoff' for filter
+    startTone(freq, voiceId, type, volume, cutoff, duration = 0) {
         if (!this.ctx) this.init();
-        this.stopTone(voiceId, 0.05);
+        this.stopTone(voiceId, AUDIO_CONFIG.ENVELOPE.ATTACK);
 
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter(); // Create Filter
+        
         const now = this.ctx.currentTime;
+        const attack = AUDIO_CONFIG.ENVELOPE.ATTACK;
 
-        osc.type = type;
+        // Oscillator Setup
+        osc.type = type || 'triangle';
         osc.frequency.setValueAtTime(freq, now);
 
+        // Filter Setup (Lowpass)
+        filter.type = 'lowpass';
+        // Fallback to 20000 if cutoff is undefined
+        filter.frequency.setValueAtTime(cutoff || 20000, now);
+
+        // Gain (Envelope) Setup
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(volume, now + 0.01); 
+        gain.gain.linearRampToValueAtTime(volume, now + attack); 
         
         if (duration > 0) {
              gain.gain.linearRampToValueAtTime(volume * 0.8, now + (duration * 0.6));
@@ -950,20 +1216,23 @@ class SoundEngine {
              gain.gain.linearRampToValueAtTime(volume * 0.8, now + 0.2); 
         }
 
-        osc.connect(gain);
+        // Connection Graph: Oscillator -> Filter -> Gain -> Output
+        osc.connect(filter);
+        filter.connect(gain);
         gain.connect(this.ctx.destination);
+        
         osc.start(now);
         
         if (duration > 0) {
             osc.stop(now + duration + 0.05);
         }
 
-        this.activeVoices[voiceId] = { osc, gain };
+        this.activeVoices[voiceId] = { osc, gain, filter };
     }
 
-    stopTone(voiceId, releaseTime = 0.1) {
+    stopTone(voiceId, releaseTime = AUDIO_CONFIG.ENVELOPE.RELEASE) {
         if (!this.ctx || !this.activeVoices[voiceId]) return;
-        const { osc, gain } = this.activeVoices[voiceId];
+        const { osc, gain, filter } = this.activeVoices[voiceId];
         const now = this.ctx.currentTime;
 
         gain.gain.cancelScheduledValues(now);
@@ -971,11 +1240,16 @@ class SoundEngine {
         gain.gain.exponentialRampToValueAtTime(0.001, now + releaseTime);
 
         osc.stop(now + releaseTime);
+        
+        // Cleanup after release
         setTimeout(() => {
             if (this.activeVoices[voiceId] && this.activeVoices[voiceId].osc === osc) {
+                osc.disconnect();
+                if(filter) filter.disconnect();
+                gain.disconnect();
                 delete this.activeVoices[voiceId];
             }
-        }, releaseTime * 1000 + 50);
+        }, releaseTime * 1000 + 100);
     }
 
     stopAll() {
@@ -988,39 +1262,47 @@ class SoundEngine {
         return (semitone >= 7) ? 3 : 4;
     }
 
-    playArpeggio(semitones, sustain = true, keySemi = 0, stopPrevious = true, baseOctave = null) {
+    playArpeggio(semitones, sustain = true, stopPrevious = true, baseOctave = null, contextKey = 'TABLE_CHORD') {
         if (stopPrevious) this.stopAll(); 
         if (!semitones.length) return;
 
-        const startNote = semitones[0];
+        // Load settings from context
+        const settings = AUDIO_CONFIG.CONTEXTS[contextKey] || AUDIO_CONFIG.CONTEXTS.TABLE_CHORD;
         
-        let startOct;
-        if (baseOctave !== null) {
-            startOct = baseOctave;
-        } else {
-            startOct = this._getBestOctave(startNote);
-        }
+        const speed = AUDIO_CONFIG.TIMING.ARPEGGIO_DELAY;
+        const sustainDuration = AUDIO_CONFIG.TIMING.ARPEGGIO_SUSTAIN;
+
+        const startNote = semitones[0];
+        let startOct = (baseOctave !== null) ? baseOctave : this._getBestOctave(startNote);
 
         const sequence = this._buildRisingSequence(semitones, startOct); 
 
         sequence.forEach((note, i) => {
             const freq = this.getFreq(note.s, note.oct);
             const voiceId = `chord-${i}`;
-            const delay = i * 100; 
+            const delay = i * speed; 
 
             const timerId = setTimeout(() => {
-                this.startTone(freq, voiceId, 'triangle', 0.2);
+                this.startTone(freq, voiceId, settings.waveform, settings.volume, settings.cutoff);
                 if (!sustain) {
-                   setTimeout(() => this.stopTone(voiceId, 0.1), 800); 
+                   setTimeout(() => this.stopTone(voiceId), sustainDuration); 
                 }
             }, delay);
             this.activeTimers.push(timerId);
         });
     }
 
-    playScaleLoop(scaleObjs, stopPrevious = true, volume = 0.2) {
+    playScaleLoop(scaleObjs, stopPrevious = true, contextKey = 'TABLE_SCALE') {
         if (stopPrevious) this.stopAll();
         if (!scaleObjs.length) return;
+
+        // Load settings
+        const settings = AUDIO_CONFIG.CONTEXTS[contextKey] || AUDIO_CONFIG.CONTEXTS.TABLE_SCALE;
+        const avoidFactor = AUDIO_CONFIG.AVOID_FACTOR;
+        
+        const beatDuration = 60000 / AUDIO_CONFIG.TIMING.SCALE_SWING_BPM;
+        const downBeatMs = beatDuration * AUDIO_CONFIG.TIMING.SCALE_SWING_RATIO;
+        const upBeatMs = beatDuration * (1 - AUDIO_CONFIG.TIMING.SCALE_SWING_RATIO);
 
         const rootObj = scaleObjs[0];
         const startOctave = this._getBestOctave(rootObj.s);
@@ -1044,18 +1326,25 @@ class SoundEngine {
             const prevId = `scale-loop`;
             const note = fullSequence[idx];
             
-            // Swing Ratio 2:1 -> 444ms : 223ms
             const isDownbeat = (idx % 2 === 0);
-            const noteDurationMs = isDownbeat ? 444 : 223; 
+            const noteDurationMs = isDownbeat ? downBeatMs : upBeatMs; 
             const noteDurationSec = noteDurationMs / 1000;
 
-            if (!note.isAvoid) {
-                const freq = this.getFreq(note.s, note.oct);
-                this.startTone(freq, prevId, 'sine', volume, noteDurationSec * 0.95);
-            } else {
-                const freq = this.getFreq(note.s, note.oct);
-                this.startTone(freq, prevId, 'sine', volume * 0.3, noteDurationSec * 0.4);
+            let currentVol = settings.volume;
+            if (note.isAvoid) {
+                currentVol = settings.volume * avoidFactor;
             }
+
+            const toneDuration = note.isAvoid ? noteDurationSec * 0.4 : noteDurationSec * 0.95;
+
+            this.startTone(
+                this.getFreq(note.s, note.oct), 
+                prevId, 
+                settings.waveform, 
+                currentVol, 
+                settings.cutoff, 
+                toneDuration
+            );
 
             idx = (idx + 1) % fullSequence.length;
             const timerId = setTimeout(tick, noteDurationMs);
@@ -1064,10 +1353,21 @@ class SoundEngine {
         tick();
     }
 
-    playChordAndScale(chordTones, scaleObjs, keySemi) {
+    playChordAndScale(chordTones, scaleObjs) {
         this.stopAll();
-        this.playArpeggio(chordTones, true, keySemi, false, null); // null baseOctave
-        this.playScaleLoop(scaleObjs, false, 0.2);
+        // Play Chord with "Combo Chord" settings
+        this.playArpeggio(chordTones, true, false, null, 'TABLE_COMBO_CHORD'); 
+        // Play Scale with "Combo Scale" settings
+        this.playScaleLoop(scaleObjs, false, 'TABLE_COMBO_SCALE');
+    }
+
+    /**
+     * Specialized method for Keyboard interaction.
+     */
+    playKeyboardTone(freq, voiceId) {
+        // Safe check in case contexts aren't loaded yet
+        const settings = AUDIO_CONFIG.CONTEXTS ? AUDIO_CONFIG.CONTEXTS.KEYBOARD : { volume: 0.25, waveform: 'triangle', cutoff: 2000 };
+        this.startTone(freq, voiceId, settings.waveform, settings.volume, settings.cutoff);
     }
 
     _buildRisingSequence(inputList, startOctave) {
@@ -1262,7 +1562,6 @@ const jcscApp = {
             return rootSemi;
         }
     },
-
     renderTable() {
         const tbody = document.querySelector('#mainTable tbody');
         tbody.innerHTML = '';
@@ -1321,6 +1620,7 @@ const jcscApp = {
             const scaleData = JSON.stringify(scaleTones).replace(/"/g, '&quot;');
             const stopLogic = "if(!isSustainMode) audioApp.stopAll()";
 
+            // UPDATED: Function calls below removed 'keySemi' argument
             tr.innerHTML = `
                 <td>${i + 1}</td>
                 <td class="col-key">
@@ -1336,18 +1636,18 @@ const jcscApp = {
                 <td>${analysis.roman}</td>
                 <td>${analysis.func}</td>
                 <td style="cursor: help;"
-                    onmousedown="audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
+                    onmousedown="audioApp.playChordAndScale(${chordData}, ${scaleData})"
                     onmouseup="${stopLogic}"
                     onmouseleave="${stopLogic}"
-                    ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playChordAndScale(${chordData}, ${scaleData}, ${keySemi})"
+                    ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playChordAndScale(${chordData}, ${scaleData})"
                     ontouchend="event.preventDefault(); ${stopLogic}"
                     title="Click/Hold to play Chord & Scale">${analysis.scaleName}</td>
                 <td class="mono-col"
                     style="cursor: help;"
-                    onmousedown="audioApp.playArpeggio(${chordData}, true, ${keySemi})"
+                    onmousedown="audioApp.playArpeggio(${chordData}, true)"
                     onmouseup="${stopLogic}"
                     onmouseleave="${stopLogic}"
-                    ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playArpeggio(${chordData}, true, ${keySemi})"
+                    ontouchstart="event.preventDefault(); jcscApp.highlightRow(${i}); audioApp.playArpeggio(${chordData}, true)"
                     ontouchend="event.preventDefault(); ${stopLogic}"
                     title="Click/Hold to play (Auto Inversion)">${analysis.chordTonesDisplay}</td>
                 <td class="mono-col"
@@ -1363,6 +1663,7 @@ const jcscApp = {
             tbody.appendChild(tr);
         });
     },
+
     highlightRow(index) {
         const row = this.rows[index];
         if (!row) return;
@@ -1381,6 +1682,8 @@ const jcscApp = {
         const notes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
         const isBlack = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0];
         const baseOctave = 3; 
+        
+        // Removed: const settings = AUDIO_CONFIG... (No longer needed here)
 
         const createKey = (semi, oct, label) => {
             const type = isBlack[semi] ? 'black' : 'white';
@@ -1395,12 +1698,21 @@ const jcscApp = {
 
             const voiceId = `key-${oct}-${semi}`;
             const freq = audioApp.getFreq(semi, oct);
+            
+            // CLEANER: Just call the specialized method
+            const playStart = (e) => { 
+                e.preventDefault(); 
+                audioApp.playKeyboardTone(freq, voiceId); 
+            };
+            const playStop = (e) => { 
+                if (!isSustainMode) audioApp.stopTone(voiceId); 
+            };
 
-            el.addEventListener('mousedown', (e) => { e.preventDefault(); audioApp.startTone(freq, voiceId); });
-            el.addEventListener('mouseup', () => { if (!isSustainMode) audioApp.stopTone(voiceId); });
-            el.addEventListener('mouseleave', () => { if (!isSustainMode) audioApp.stopTone(voiceId); });
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); audioApp.startTone(freq, voiceId); }, {passive: false});
-            el.addEventListener('touchend', (e) => { e.preventDefault(); if (!isSustainMode) audioApp.stopTone(voiceId); });
+            el.addEventListener('mousedown', playStart);
+            el.addEventListener('mouseup', playStop);
+            el.addEventListener('mouseleave', playStop);
+            el.addEventListener('touchstart', playStart, {passive: false});
+            el.addEventListener('touchend', (e) => { e.preventDefault(); playStop(); });
 
             return el;
         };
@@ -1431,6 +1743,20 @@ const jcscApp = {
         });
     }
 };
+// === Footer Logic: Exclusive Accordion ===
+{
+    const en = document.getElementById('details-en');
+    const jp = document.getElementById('details-jp');
+
+    if (en && jp) {
+        en.addEventListener('toggle', () => {
+            if (en.open && jp.open) jp.removeAttribute('open');
+        });
+        jp.addEventListener('toggle', () => {
+            if (jp.open && en.open) en.removeAttribute('open');
+        });
+    }
+}
 
 jcscApp.init();
 
@@ -1794,8 +2120,8 @@ const cofApp = {
             const dist4 = Math.abs(posOct4 - keyCenterHeight);
 
             const targetOctave = (dist3 <= dist4) ? 3 : 4;
-
-            audioApp.playArpeggio(tones, true, keySemi, true, targetOctave);
+            
+            audioApp.playArpeggio(tones, true, true, targetOctave);
         }
     },
 
@@ -1877,6 +2203,56 @@ CircleUI.init();
 window.onload = function() {
     deselectAll();
 };
+// iOS Safari Rotation/Resize Fix
+window.addEventListener('resize', () => {
+    document.body.style.display = 'none';
+    document.body.offsetHeight;
+    document.body.style.display = 'flex';
+    window.scrollTo(0, 0);
+});
 </script>
+<nav class="footer-nav">
+    <details class="footer-item" id="details-en">
+        <summary class="footer-trigger">About (EN)</summary>
+        <div class="about-content">
+            <div class="about-header">
+                <h2>About JCSC</h2>
+                <button class="btn-close" onclick="document.getElementById('details-en').removeAttribute('open')">×</button>
+            </div>
+            <p>
+                JCSC (Jazz Chord and Scale Calculator) is a free interactive <strong>music theory tool</strong> running in your browser. 
+                Designed for musicians, it allows you to visualize the <strong>Circle of Fifths</strong>, calculate chord scales, and verify available tensions with audio playback using the Web Audio API.
+            </p>
+            <h3>Key Features</h3>
+            <ul>
+                <li><strong>Circle of Fifths Visualizer:</strong> Interactive SVG chart to understand key relationships and modal interchange.</li>
+                <li><strong>Chord Scale Calculator:</strong> Automatically analyzes harmonic functions (Tonic, Dominant, etc.) and suggests scales like Dorian, Lydian, and Altered Scale.</li>
+                <li><strong>Audio Engine:</strong> Play chord tones and scales (with swing feel) instantly without external software.</li>
+                <li><strong>Chord Progressions:</strong> Analyze standard jazz progressions (ii-V-I) and transpose them to any key.</li>
+            </ul>
+        </div>
+    </details>
+
+    <details class="footer-item" id="details-jp">
+        <summary class="footer-trigger">About (JP)</summary>
+        <div class="about-content">
+            <div class="about-header">
+                <h2>JCSCについて</h2>
+                <button class="btn-close" onclick="document.getElementById('details-jp').removeAttribute('open')">×</button>
+            </div>
+            <p>
+                JCSC（Jazz Chord and Scale Calculator）は、ブラウザ上で動作する無料の<strong>音楽理論ツール</strong>です。
+                ジャズミュージシャンや学習者向けに設計されており、<strong>五度圏（サークル・オブ・フィフス）</strong>の視覚化、アベイラブルノート・スケールの判定、そしてWeb Audio APIを用いた和音・スケールの再生が可能です。
+            </p>
+            <h3>主な機能</h3>
+            <ul>
+                <li><strong>五度圏ビジュアライザー:</strong> SVGによる対話的なチャートで、調の関係性やモーダルインターチェンジ（借用和音）を視覚的に理解できます。</li>
+                <li><strong>コード・スケール判定:</strong> コード進行を入力すると、その和音の機能（トニック、ドミナント等）を分析し、ドリアン、リディアン、オルタード・スケールなどの適切なスケールを提案します。</li>
+                <li><strong>オーディオ再生機能:</strong> 外部ソフトなしで、ボイシングされた和音やスウィング感のあるスケールを即座に試聴できます。</li>
+                <li><strong>移調・分析:</strong> 一般的なジャズ進行（ツーファイブワンなど）のプリセットを読み込み、任意のキーへ瞬時に移調（トランスポーズ）できます。</li>
+            </ul>
+        </div>
+    </details>
+</nav>
 </body>
 </html>
