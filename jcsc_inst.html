@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JCSC Inst">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>JCSC Inst v5.3 (CoF Widget)</title>
+</head>
+<body>
+
+<header>
+    <button id="btn-sc" onclick="app.toggleSC()">SC</button>
+    <button id="btn-sk" onclick="app.toggleSK()">SK</button>
+    <button id="btn-vc" onclick="app.toggleVC()">VC</button>
+    <button id="btn-cof" onclick="app.toggleCoF()">CoF</button>
+    <button onclick="app.toggleTheme()">DK</button>
+    <button onclick="app.openIE()">IE</button>
+    
+    <div class="select-wrapper">
+        <div class="select-face">LD</div>
+        <select id="preset-select-main" onchange="app.loadPreset(this.value)">
+            <option value="" disabled selected>Load Preset</option>
+        </select>
+    </div>
+
+    <button id="btn-ed" onclick="app.toggleEditMode()">ED</button>
+    <div class="header-logo" id="logo-jcsc">JCSC</div>
+</header>
+
+<div id="floating-widget" style="display:none;">
+    <div class="widget-header" id="widget-drag-handle">
+        <span>Circle of Fifths</span>
+        <div style="display:flex; gap:4px;">
+            <span class="widget-toggle-btn" onclick="app.toggleCoF()">×</span>
+        </div>
+    </div>
+    <div class="widget-body">
+        <div id="widget-cof-container">
+            <div id="widget-cof-svg-layer"></div>
+            
+            <div id="widget-overlay-key">Key: C (Maj)</div>
+
+            <button id="widget-toggle-mode" class="widget-mode-btn" onclick="app.toggleKeyMode()">Maj</button>
+
+            <div id="widget-overlay-chord"></div>
+        </div>
+        <div id="widget-staff-wrapper">
+            <div id="widget-staff-container"></div>
+        </div>
+    </div>
+</div>
+
+<div id="modal-ie">
+    <div class="modal-content">
+        <div style="font-weight:bold; color:var(--text-main); display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-shrink:0;">
+            <span id="modal-title">Import / Export</span>
+            <span onclick="app.closeIE()" style="cursor:pointer; font-size:18px;">×</span>
+        </div>
+        <div class="modal-actions" id="modal-actions">
+            <button onclick="app.selectAllIE()">SelAll</button>
+            <button onclick="app.copyToClipboard()">ExpToCp</button>
+            <button class="active" onclick="app.importData()">ImpToPads</button>
+        </div>
+        <textarea id="ie-text"></textarea>
+    </div>
+</div>
+
+<div id="stage">
+    <div id="mode-performance">
+        <div class="pad-container" id="padGrid"></div>
+        <div class="keyboard-wrapper" id="kbWrapper">
+            <div class="kb-gesture-area-top" id="kbGestureTop"></div>
+            <div class="kb-main-area">
+                <div class="keyboard-transform-layer" id="kbLayer"></div>
+            </div>
+            <div class="kb-gesture-area-bottom" id="kbGestureBottom"></div>
+        </div>
+    </div>
+    <div id="mode-edit">
+        <div class="edit-left">
+            <div id="cofEditPlaceholder"></div>
+            <div id="cofChordOverlay">
+                <div id="cofChordMain">C M7</div>
+                <div id="cofChordSub">Key: C</div>
+            </div>
+        </div>
+        <div class="edit-right">
+            <div id="staffOverlay" onclick="app.toggleStaffOverlay()">
+                <div class="staff-container" id="staffBox"></div>
+            </div>
+            <div class="control-group">
+                <div class="control-label">Quality</div>
+                <div class="btn-grid" id="qualityGrid"></div>
+            </div>
+            <div class="control-group">
+                <div class="control-label">Tension</div>
+                <div class="btn-grid" id="tensionGrid"></div>
+            </div>
+            <div class="control-group">
+                <div class="control-label">Omit</div>
+                <div class="btn-grid" id="omitGrid"></div>
+            </div>
+            <div class="control-group">
+                <div class="control-label">Bass Note</div>
+                <div class="bass-keyboard" id="bassKeyboard"></div>
+                <div style="text-align:right; font-size:10px; color:#888; margin-top:2px;">Tap to set On-Chord</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
+
+<style>
+:root {
+    /* === GLOBAL COLORS === */
+    --bg-body: #f4f4f4; --bg-panel: #fff; --text-main: #333; --border-color: #ccc;
+    --accent-blue: #039be5; --accent-red: #d32f2f;
+    --accent-yellow: #fbc02d; 
+    --pad-bg: #e1f5fe; --pad-border: #81d4fa; --pad-active: #b3e5fc;
+    --btn-bg: #eee; --btn-text: #333;
+    --kb-bg: #222; --key-white: #fff; --key-black: #111;
+
+    /* CoF Colors */
+    --cof-stroke: #aaa;
+    --cof-knob-stroke: #999;
+    --hl-diatonic: #e1f5fe; --hl-diatonic-border: #039be5;
+    --hl-sub: #fff9c4; --hl-sub-border: #fbc02d;
+    --hl-active: #ffcdd2; --hl-active-stroke: #d32f2f;
+
+    /* VC Colors */
+    --vc-root: #ffcdd2; --vc-bass: #fff9c4; --vc-tone: #bbdefb; --vc-tension: #c8e6c9;
+
+    /* Staff Colors */
+    --staff-bg: #fff; --staff-stroke: #000;
+
+    /* === WIDGET LAYOUT CONFIGURATION === */
+    --wdg-dim-min: 200px;
+    --wdg-dim-max: 350px;
+    --wdg-dim-pref: 25vw;
+    --wdg-base-size: clamp(var(--wdg-dim-min), var(--wdg-dim-pref), var(--wdg-dim-max));
+    
+    --wdg-anim-speed: 0.3s;
+    --wdg-anim-ease: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+body.dark-mode {
+    --bg-body: #121212; --bg-panel: #1e1e1e; --text-main: #e0e0e0; --border-color: #444;
+    --pad-bg: #01579b; --pad-border: #0277bd; --pad-active: #0288d1;
+    --btn-bg: #333; --btn-text: #ccc;
+    --key-white: #bfbfbf; 
+
+    --cof-stroke: #555; --cof-knob-stroke: #666;
+    --hl-diatonic: #01579b; --hl-diatonic-border: #4fc3f7;
+    --hl-sub: #8d6e15; --hl-sub-border: #f9a825;
+    --hl-active: #b71c1c; --hl-active-stroke: #ff8a80;
+
+    --vc-root: #ef5350; --vc-bass: #ffca28; --vc-tone: #42a5f5; --vc-tension: #66bb6a;
+
+    --staff-bg: #2c2c2c; --staff-stroke: #e0e0e0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, “Segoe UI”, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg-body); color: var(--text-main); margin: 0; padding: 0;
+    width: 100vw; height: var(--app-height); overflow: hidden; display: flex; flex-direction: column;
+    user-select: none; -webkit-user-select: none; touch-action: none; transition: background 0.3s, color 0.3s;
+}
+
+header {
+    height: var(--h-header); background: var(--bg-panel); border-bottom: 1px solid var(--border-color);
+    display: grid; grid-template-columns: repeat(9, 1fr); 
+    gap: 4px; padding: 0 4px; box-sizing: border-box; align-items: center; z-index: 10; flex-shrink: 0;
+}
+.header-logo { display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; color: var(--text-main); white-space: nowrap; overflow: hidden; cursor: pointer; user-select: none; transition: background 0.3s; }
+.header-logo.pressing { background: var(--accent-yellow); color: #000; }
+
+button {
+    background: var(--btn-bg); border: 1px solid var(--border-color); color: var(--btn-text);
+    border-radius: 6px; padding: 0; height: 36px; font-size: 11px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; white-space: nowrap; width: 100%;
+}
+button:active { opacity: 0.6; }
+button.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+button.edit-pending { background: var(--accent-red); color: white; animation: blink 1s infinite; }
+button.editing-active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+@keyframes blink { 50% { opacity: 0.5; } }
+
+.select-wrapper {
+    position: relative; width: 100%; height: 36px;
+    background: var(--btn-bg); border: 1px solid var(--border-color);
+    border-radius: 6px; padding: 0; box-sizing: border-box;
+}
+.select-face {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--btn-text);
+    pointer-events: none; z-index: 1;
+}
+#preset-select-main {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    opacity: 0; z-index: 2; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+}
+
+/* === FLOATING WIDGET STYLES === */
+#floating-widget {
+    position: absolute; top: 60px; left: 20px; z-index: 50;
+    background: var(--bg-panel); border: 1px solid var(--border-color);
+    border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    display: flex; flex-direction: column; overflow: hidden;
+    
+    /* Dynamic Sizing Logic */
+    width: var(--wdg-base-size);
+    transition: width var(--wdg-anim-speed) var(--wdg-anim-ease);
+}
+
+#floating-widget.expanded { width: calc(var(--wdg-base-size) * 2); }
+
+.widget-header {
+    height: 24px; background: var(--btn-bg); border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 8px;
+    cursor: grab; font-size: 11px; font-weight: bold; color: var(--text-main); flex-shrink: 0;
+}
+.widget-header:active { cursor: grabbing; }
+.widget-toggle-btn { cursor: pointer; font-size: 16px; font-weight: bold; line-height: 1; }
+
+.widget-body {
+    flex: 1; display: flex; flex-direction: row; position: relative;
+    /* Height matches the base size to keep aspect ratio 1:1 for CoF */
+    height: var(--wdg-base-size);
+}
+
+#widget-cof-container {
+    width: var(--wdg-base-size); height: 100%; flex-shrink: 0; position: relative;
+}
+#widget-cof-svg-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+}
+
+/* === WIDGET OVERLAYS (UPDATED) === */
+#widget-overlay-key {
+    position: absolute;
+    top: 6px;
+    left: 8px; /* Moved to Left */
+    right: auto;
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--text-main);
+    text-align: left;
+    z-index: 10;
+    pointer-events: none;
+    text-shadow: 0 0 2px var(--bg-panel);
+}
+
+#widget-overlay-chord {
+    position: absolute;
+    bottom: 6px;
+    left: 8px;
+    font-size: 16px; 
+    font-weight: 900;
+    color: var(--accent-blue);
+    text-align: left;
+    z-index: 10;
+    pointer-events: none;
+    text-shadow: 0 0 2px var(--bg-panel);
+}
+
+/* === WIDGET MODE TOGGLE (NEW) === */
+.widget-mode-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 32px;
+    height: 18px;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 0;
+    line-height: 1;
+    border-radius: 4px;
+    background: var(--btn-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    z-index: 20; /* Must be above SVG layer */
+    cursor: pointer;
+    pointer-events: auto;
+    opacity: 0.9;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    transition: opacity 0.2s, background 0.2s;
+}
+.widget-mode-btn:hover { opacity: 1.0; background: var(--bg-panel); }
+.widget-mode-btn:active { background: var(--accent-blue); color: #fff; }
+
+#widget-staff-wrapper {
+    width: 0; height: 100%; flex-shrink: 0; overflow: hidden;
+    transition: width var(--wdg-anim-speed) var(--wdg-anim-ease);
+    background: var(--staff-bg); border-left: 1px solid var(--border-color);
+}
+#floating-widget.expanded #widget-staff-wrapper { width: var(--wdg-base-size); }
+#widget-staff-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+
+/* === MODAL & STAGE === */
+#modal-ie {
+    display: none; position: fixed; top: var(--h-header); left: 0; width: 100%; height: var(--h-rest);
+    background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center;
+}
+.modal-content {
+    background: var(--bg-panel); width: 90%; max-width: 400px; height: 85%; padding: 15px; border-radius: 8px;
+    display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); box-sizing: border-box;
+}
+.modal-actions { display: flex; flex-direction: row; gap: 4px; width: 100%; flex-shrink: 0; }
+.modal-actions button { flex: 1; height: 36px; font-size: 12px; }
+.modal-content textarea {
+    width: 100%; height: auto; flex: 1; font-family: monospace; font-size: 14px;
+    background: var(--btn-bg); color: var(--text-main); border: 1px solid var(--border-color);
+    border-radius: 4px; padding: 8px; box-sizing: border-box; resize: none;
+}
+
+#stage { flex: 1; position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+#mode-performance { display: flex; flex-direction: column; height: 100%; width: 100%; }
+.pad-container {
+    height: var(--h-pads); padding: 4px; box-sizing: border-box; display: grid;
+    grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(2, 1fr); gap: 4px; background: var(--bg-body);
+}
+.chord-pad {
+    background: var(--pad-bg); border: 1px solid var(--pad-border); border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; color: var(--text-main); gap: 1px;
+}
+.chord-pad.active-touch { background: var(--pad-active); border-color: var(--accent-blue); transform: scale(0.96); }
+.chord-pad.active-hold { background: var(--pad-active); border-color: var(--accent-blue); }
+.chord-main { font-size: 15px; font-weight: 800; line-height: 1; pointer-events: none; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chord-sub { font-size: 10px; font-weight: 500; opacity: 0.85; line-height: 1; pointer-events: none; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.keyboard-wrapper {
+    height: var(--h-keyboard); background: var(--kb-bg); position: relative;
+    overflow: hidden; border-top: 4px solid #000; touch-action: none;
+    display: flex; flex-direction: column;
+}
+.kb-gesture-area-top { flex-shrink: 0; height: var(--h-gesture-top); background: rgba(0,0,0,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); pointer-events: auto; }
+.kb-main-area { height: var(--h-keyboard-main); flex-shrink: 0; position: relative; overflow: hidden; }
+.kb-gesture-area-bottom { flex-shrink: 0; height: var(--h-gesture-bottom); background: rgba(0,0,0,0.1); border-top: 1px solid rgba(255,255,255,0.1); pointer-events: auto; }
+.keyboard-transform-layer { position: absolute; top: 0; left: 0; height: 100%; display: flex; transform-origin: 0 0; will-change: transform; }
+.key { position: relative; flex-shrink: 0; border: 1px solid #999; border-radius: 0 0 4px 4px; box-sizing: border-box; transition: background 0.1s; }
+.key.white { height: 100%; background: var(--key-white); z-index: 1; }
+.key.black { background: var(--key-black); border: 1px solid #000; border-bottom: 5px solid #000; z-index: 2; }
+.key.pressed { background: #bbb !important; }
+.key.black.pressed { background: #444 !important; border-bottom-width: 2px; transform: translateY(3px); }
+
+/* VC Highlights */
+.key.vc-root { background: var(--vc-root) !important; }
+.key.vc-bass { background: var(--vc-bass) !important; }
+.key.vc-tone { background: var(--vc-tone) !important; }
+.key.vc-tension { background: var(--vc-tension) !important; }
+.key.black.vc-root, .key.black.vc-bass, .key.black.vc-tone, .key.black.vc-tension {
+    border: 1px solid rgba(255,255,255,0.6) !important; box-shadow: inset 0 0 4px rgba(0,0,0,0.4);
+}
+
+/* === EDIT MODE === */
+#mode-edit { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-body); z-index: 20; }
+body.editing #mode-edit { display: flex; }
+
+.edit-left {
+    display: flex; justify-content: center; align-items: center;
+    width: 50%; height: 100%; position: relative;
+    background: var(--bg-panel); border-right: 1px solid var(--border-color);
+    overflow: hidden; 
+}
+#cofEditPlaceholder {
+    width: 100%; max-width: 800px; aspect-ratio: 1 / 1;
+    transform: none; display: flex; justify-content: center; align-items: center;
+}
+
+.edit-right { width: 50%; height: 100%; position: relative; padding: 10px; overflow-y: auto; background: var(--bg-panel); box-sizing: border-box; }
+
+#cofChordOverlay { position: absolute; top: 10px; right: 10px; text-align: right; pointer-events: none; z-index: 5; }
+#cofChordMain { font-size: 20px; font-weight: 900; color: var(--text-main); line-height: 1; margin-bottom: 2px; }
+#cofChordSub { font-size: 12px; color: var(--accent-blue); font-weight: bold; }
+
+.control-group { margin-bottom: 10px; }
+.control-label { font-size: 10px; font-weight: bold; color: var(--text-main); margin-bottom: 3px; opacity: 0.7; text-transform: uppercase; }
+.btn-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.btn-opt { font-size: 11px; height: 32px; padding: 0 2px; }
+
+.bass-keyboard { display: flex; width: 100%; height: 90px; position: relative; margin-top: 5px; background: #333; border: 1px solid #000; border-radius: 4px; }
+.bass-key { flex: 1; position: relative; border: 1px solid #888; background: #fff; border-radius: 0 0 3px 3px; cursor: pointer; }
+.bass-key.black { background: #000; height: 60%; width: 8%; position: absolute; z-index: 2; border: 1px solid #333; }
+.bass-key.active { background: var(--accent-blue) !important; }
+.bass-key-label { position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 11px; color: #555; pointer-events: none; }
+
+/* === NEW: Edit Panel Key Context Controls (3-Way) === */
+.key-context-group {
+    margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-color);
+}
+.key-context-row { display: flex; gap: 4px; margin-bottom: 4px; }
+.btn-context {
+    flex: 1; height: 36px; font-size: 10px; font-weight: bold;
+    border: 1px solid var(--border-color); background: var(--btn-bg); color: var(--btn-text);
+    border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; text-align: center; line-height: 1.1; white-space: nowrap; overflow: hidden;
+}
+.btn-context.active {
+    background: var(--accent-blue); color: #fff; border-color: var(--accent-blue);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.btn-context.active.fixed-mode { background: var(--accent-red); border-color: var(--accent-red); }
+
+/* === SVG & CoF Graphics === */
+svg { width: 100%; height: 100%; overflow: visible; }
+.sector-path { stroke: var(--cof-stroke); stroke-width: 2px; fill: var(--bg-panel); transition: fill 0.1s; cursor: pointer; vector-effect: non-scaling-stroke; }
+.sector-text { fill: var(--text-main); pointer-events: none; text-anchor: middle; dominant-baseline: middle; font-weight: bold; }
+.sector-text.outer { font-size: 22px; } .sector-text.inner { font-size: 16px; opacity: 0.8; }
+.highlight-diatonic { fill: var(--hl-diatonic) !important; stroke: var(--hl-diatonic-border) !important; stroke-width: 2px !important; }
+.highlight-sub { fill: var(--hl-sub) !important; stroke: var(--hl-sub-border) !important; stroke-width: 2px !important; }
+.highlight-active { fill: var(--hl-active) !important; stroke: var(--hl-active-stroke) !important; stroke-width: 3px !important; }
+.highlight-active-text { fill: #fff !important; }
+body.dark-mode .highlight-sub { fill: var(--hl-sub) !important; color: #000; }
+body.dark-mode .highlight-sub ~ text { fill: #000 !important; opacity: 1; }
+
+.knob-grip { fill: url(#knobGrad); stroke: var(--cof-knob-stroke); stroke-width: 1px; }
+.knob-arrow { fill: var(--text-main); pointer-events: none; } .knob-hit { fill: transparent; }
+
+.center-btn-group { cursor: pointer; }
+.center-btn-circle { fill: var(--btn-bg); stroke: var(--border-color); stroke-width: 2px; transition: fill 0.2s; }
+.center-btn-group:hover .center-btn-circle { fill: var(--accent-blue); stroke: var(--accent-blue); }
+.center-btn-text { font-size: 13px; font-weight: 900; fill: var(--text-main); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.center-btn-group:hover .center-btn-text { fill: #fff; }
+
+#staffOverlay {
+    display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--bg-panel); z-index: 10; flex-direction: column; justify-content: center; align-items: center;
+}
+#staffOverlay.active { display: flex; }
+.staff-container {
+    width: 95%; height: 95%; background: var(--staff-bg);
+    border: 1px solid var(--border-color); border-radius: 8px;
+    padding: 5px; box-sizing: border-box; display: flex; justify-content: center; align-items: center;
+}
+.st-line { stroke: var(--staff-stroke); stroke-width: 2px; }
+.st-clef-stroke { fill: none; stroke: var(--staff-stroke); stroke-width: 6px; stroke-linecap: round; stroke-linejoin: round; }
+.st-clef-fill { fill: var(--staff-stroke); stroke: none; }
+.st-acc-custom { fill: none; stroke: var(--staff-stroke); stroke-width: 5px; stroke-linecap: round; stroke-linejoin: round; }
+.st-brace { stroke: var(--staff-stroke); stroke-width: 3px; }
+</style>
+
+<script>
+/* === LOGGER SYSTEM (Low Latency) === */
+const LOG_CONFIG = { BUFFER_SIZE: 1000, ENABLED: true };
+
+const Logger = {
+    buffer: new Array(LOG_CONFIG.BUFFER_SIZE),
+    head: 0,
+    size: 0,
+
+    log(category, message, data = null) {
+        if (!LOG_CONFIG.ENABLED) return;
+        const timestamp = Date.now();
+        this.buffer[this.head] = { t: timestamp, c: category, m: message, d: data };
+        this.head = (this.head + 1) % LOG_CONFIG.BUFFER_SIZE;
+        if (this.size < LOG_CONFIG.BUFFER_SIZE) this.size++;
+    },
+
+    exportText() {
+        if (this.size === 0) return "No logs available.";
+        let output = "";
+        let idx = (this.size < LOG_CONFIG.BUFFER_SIZE) ? 0 : this.head;
+        const count = this.size;
+
+        for (let i = 0; i < count; i++) {
+            const entry = this.buffer[idx];
+            if (entry) {
+                const date = new Date(entry.t);
+                const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}.${date.getMilliseconds().toString().padStart(3, '0')}`;
+                
+                let dataStr = "";
+                
+                // Special formatting for Calc/Voicing logs to match 178.log
+                if (entry.c === 'CALC' && entry.d && entry.d.top3) {
+                    dataStr = `\n    Ctx: ${JSON.stringify(entry.d.ctx)}`;
+                    dataStr += `\n    Top3 Candidates:\n`;
+                    entry.d.top3.forEach((cand, cIdx) => {
+                        const bd = cand.breakdown;
+                        // Format: (Grav:-1.5 Stab:0.0 ...)
+                        const breakdownStr = `(Grav:${bd.gravity.toFixed(1)} Stab:${bd.stability.toFixed(1)} Comp:${bd.compact.toFixed(1)} Triad:${bd.triad.toFixed(1)} Low:${bd.lowBias.toFixed(1)} Res:${bd.resolution.toFixed(1)})`;
+                        dataStr += `      #${cIdx + 1}: [${cand.voicing.join(',')}] Score:${cand.score.toFixed(2)} ${breakdownStr}\n`;
+                    });
+                } 
+                // Fallback for other objects
+                else if (entry.d !== null) {
+                    if (typeof entry.d === 'object') {
+                        dataStr = " " + JSON.stringify(entry.d);
+                    } else {
+                        dataStr = " " + entry.d;
+                    }
+                }
+
+                output += `[${timeStr}] [${entry.c}] ${entry.m}${dataStr}\n`;
+            }
+            idx = (idx + 1) % LOG_CONFIG.BUFFER_SIZE;
+        }
+        return output;
+    }
+};
+
+/* === CONFIGURATION === */
+const LAYOUT = {
+    LANDSCAPE: { HEADER: 15, PADS: 40, GESTURE_TOP: 5, KEYBOARD_MAIN: 45, GESTURE_BOTTOM: 15 },
+    PORTRAIT: { HEADER: 15, PADS: 40, GESTURE_TOP: 5, KEYBOARD_MAIN: 45, GESTURE_BOTTOM: 15 },
+    WHITE_KEY_WIDTH_PX: 60, BLACK_KEY_WIDTH_PX: 42,
+    BLACK_KEY_HEIGHT_RATIO_LANDSCAPE: 0.55, BLACK_KEY_HEIGHT_RATIO_PORTRAIT: 0.65,
+    GEN_RANGE: { START: 36, END: 96 }, 
+    INIT_VIEW: { START_NOTE: 36, END_NOTE: 72 }
+};
+
+const AUDIO_CONFIG = {
+    VOL_BASS: 0.4, VOL_CHORD: 0.3, VOL_KEYBOARD: 0.5,
+    VOLUME_MIN_THRESHOLD: 0.01, VOLUME_CENTER_NOTE: 60, VOLUME_OCTAVE_CURVE: 0.7,
+    OSC_BASS: 'sawtooth', OSC_CHORD: 'triangle', OSC_KEYBOARD: 'triangle',
+    LPF_BASS: 400, LPF_CHORD: 800, LPF_KEYBOARD: 1600,
+    CONCERT_A_FREQ: 440, CONCERT_A_MIDI: 69, SEMITONES_PER_OCTAVE: 12,
+    BASS_RANGE: { MIN_FREQ: 46, MAX_FREQ: 185 },
+    ARPEGGIO_NOTE_DELAY: 5, TIMING: { SCHEDULE_AHEAD: 0.04 },
+    ENVELOPE: { CHORD_ATTACK: 0.02, CHORD_RELEASE: 0.1, KEY_ATTACK: 0.01, KEY_RELEASE: 0.1 },
+    COMPRESSOR: { THRESHOLD: -15, KNEE: 40, RATIO: 12, ATTACK: 0, RELEASE: 0.25 }
+};
+
+const VOICING_CONFIG = {
+    RESET_TIMEOUT_MS: 3000, CHORD_MIN: 48, CHORD_MAX: 72, BASS_MIN: 36, BASS_MAX: 60, TENSION_MIN_INTERVAL: 3
+};
+
+const VOICING_SCORING = {
+    WEIGHTS: {
+        GRAVITY: 0.5, STABILITY: 0.2, COMPACT_BONUS: 8.0, COMPACT_PENALTY: 5.0,
+        TRIAD_BONUS: 5.0, TRIAD_PENALTY: 3.0, EXTENDED_BONUS: 3.0, LOW_BIAS: 0.2,
+        RESOLUTION_7TH: 20.0, RESOLUTION_3RD: 10.0
+    },
+    THRESHOLDS: {
+        COMPACT_MIN: 12, COMPACT_MAX: 15, TARGET_CENTER_DEFAULT: 62, PREV_TOP_DEFAULT: 67,
+        SEMITONE_STEP: 1, WHOLE_TONE_STEP: 2
+    }
+};
+
+const UI_CONFIG = {
+    KEYBOARD_MIN_SCALE: 0.5, KEYBOARD_MAX_SCALE: 2.5,
+    KEYBOARD_INIT_TRANSLATE_X: -50, RESIZE_DEBOUNCE_MS: 200, LONGPRESS_DURATION_MS: 3000
+};
+
+/* === WIDGET BEHAVIOR CONFIGURATION === */
+
+/* === WIDGET BEHAVIOR CONFIGURATION === */
+const WIDGET_CONFIG = {
+    // These strings map to DOM IDs and Classes
+    DOM: {
+        ID_WIDGET: 'floating-widget',
+        
+        // 【修正】描画先を新設したSVGレイヤーのIDに変更
+        ID_CONTAINER_COF: 'widget-cof-svg-layer', 
+        
+        ID_CONTAINER_STAFF: 'widget-staff-container',
+        ID_WRAPPER_STAFF: 'widget-staff-wrapper',
+        ID_HANDLE: 'widget-drag-handle',
+        ID_OVERLAY_KEY: 'widget-overlay-key',
+        ID_OVERLAY_CHORD: 'widget-overlay-chord',
+        CLASS_TOGGLE_BTN: 'widget-toggle-btn',
+        CLASS_EXPANDED: 'expanded'
+    },
+    // Interaction settings
+    DRAG: {
+        CURSOR_GRAB: 'grab',
+        CURSOR_GRABBING: 'grabbing'
+    }
+};
+
+/* === LAYOUT LOGIC === */
+(function() {
+    const root = document.documentElement;
+    const updateLayout = () => {
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const ratios = isPortrait ? LAYOUT.PORTRAIT : LAYOUT.LANDSCAPE;
+        root.style.setProperty('--app-height', '100dvh');
+        root.style.setProperty('--h-header', `calc(var(--app-height) * ${ratios.HEADER} / 100)`);
+        root.style.setProperty('--h-rest', `calc(var(--app-height) - var(--h-header))`);
+        root.style.setProperty('--h-pads', `calc(var(--h-rest) * ${ratios.PADS} / 100)`);
+        root.style.setProperty('--h-keyboard', `calc(var(--h-rest) * ${ratios.GESTURE_TOP + ratios.KEYBOARD_MAIN + ratios.GESTURE_BOTTOM} / 100)`);
+        root.style.setProperty('--h-gesture-top', `calc(var(--h-rest) * ${ratios.GESTURE_TOP} / 100)`);
+        root.style.setProperty('--h-keyboard-main', `calc(var(--h-rest) * ${ratios.KEYBOARD_MAIN} / 100)`);
+        root.style.setProperty('--h-gesture-bottom', `calc(var(--h-rest) * ${ratios.GESTURE_BOTTOM} / 100)`);
+    };
+    window.addEventListener('orientationchange', () => setTimeout(updateLayout, 100));
+    updateLayout();
+})();
+
+/* === DATA === */
+
+/* === UPDATED DATA === */
+/* Converted to new format: Pad 0 defines Key explicitly using 'in Root Mode' */
+const PRESETS = {
+    "[Basic] Diatonic & Functional in C": "C in C Maj|Dm|Em|F|G|Am|Bm7b5|C|E7|D7|CM7|Dm7|Em7|FM7|G7|Am7|B7|CM7|Fm|Db7",
+    "[J-Pop] Canon & Royal Road in C": "C/C in C Maj|G/B|Am/A|Em/G|F/F|C/E|D7/D|G7/G|C|G7|FM7|G7|Em7|Am7|Dm7|G7|Em7|A7|Dm7|G7",
+    "[Lo-Fi] Chill Hop Vibes in Ab": "AbM7 in Ab Maj|Cm7|Bbm7|Eb9|AbM7|Fm9|Bbm9|Eb7(b9)|AbM7|Ab7|DbM7|Dbm6|Cm7|F7(b13)|Bbm7|A7|AbM7|Gm7b5|C7|Fm9",
+    "[Neo-Soul] Future Chords in Ebm": "Ebm9 in Eb Min|Ab13|DbM9|Bb7(alt)|Ebm9|Fm7b5|Bb7(b9)|Ebm11|Db/F|GbM7|BM7|Bb7|Ebm9|D7(#11)|DbM7|C7(alt)|BM7|Bb7sus4|Ebm9|Ebm9",
+    "[City Pop] Midnight Loop in Fm": "DbM7 in F Min|C7(alt)|Fm9|Ebm7|Ab7|DbM7|C7(b9)|Fm9|Cm7|F7|Bbm9|Cm7|Fm9|Bb13|Bbm7|Eb9|AbM7|G7(alt)|C7(alt)",
+    "[Theory] Diatonic & Functional in C": "C in C Maj|Dm|Em|F|G|Am|Bm7b5|C|G/B|C|CM7|Dm7|Em7|FM7|G7|Am7|B7|E7|A7|D7|G7",
+    "[R&B] Smooth Passing in C": "CM9 in C Maj|F13|Em7|A7(alt)|Dm9|G13|CM9|C7(#9)|FM9|Fm9|Em7|Ebdim7|Dm7|DbM7|CM7|Bm7b5|E7(#9)|Am7|Ab7|GM7",
+    "[Gospel] Sunday Worship in Eb": "Eb in Eb Maj|Bb/D|Cm7|Eb/Bb|AbM7|Eb/G|Fm7|Bb7sus4|Eb|Eb7/Db|Ab/C|Bdim7|Cm7|F9|Fm7|Bb7(b9)|Eb|Abm6|Eb",
+    "[Funk] 70s Groove Vamp in E": "E7(#9) in E Maj|E13|E7(#9)|G13|E7(#9)|A13|E7(#9)|D9|E9|Db9|A7|Ab7|G7|Gb7|F7|E7(#9)|B7(#9)|E7|A13",
+    "[Bossa] Cafe Guitar Style in D": "DM7 in D Maj|B7(b9)|Em7|A7(13)|F#m7|B7(b13)|Em9|A7(b9)|DM7|D6|Gm6|F#m7|Fo7|Em7|Eb7(9)|DM7|C#m7b5|F#7(alt)|Bm7|E9",
+    "[Trap] Midnight Drifting in C#m": "C#m9 in C# Min|AM7|F#m9|G#m7|C#m9|B6|Aadd9|G#7(alt)|C#m|C#m/B|A|E/G#|F#m7|B7|EM7|A|F#m|G#m|C#m9",
+    "[Acid] Shibuya Stream in F": "FM7 in F Maj|E7(alt)|Am7|Gm7|C7|FM7|Em7|Ebdim7|Dm9|Db9|Cm7|F9|BbM7|Bdim7|Am7|D7(b9)|Gm7|C7|F6",
+    "[Epic] Heroic Battle in Cm": "Cm in C Min|Bb|Ab|Gm|Fm|Eb|DbM7|Gsus4|Cm|Ab/C|Bb/D|Eb|AbM7|Fm7|G7(b13)|Cm9|AbM7|Fm9|Bb13|Cm",
+    "[World] Spanish Phrygian in Am": "Am in A Min|G6|FM7|E7|Am9|Gadd9|Fadd9|E7(b9)|Am|Am/G|F#m7b5|FM7|E7sus4|E7|Dm6|Am/E|B7/D#|E7|AmM7",
+    "[Ballad] Tears in Rain in C": "C in C Maj|G/B|Am|Am/G|FM7|C/E|Dm7|G7sus4|C|E7/G#|Am|Gm7|C7|FM7|Fm6|Em7|A7(b9)|Dm7|G7(b9)",
+    "[J-Pop] Komuro & Anime Style in Am": "Am in A Min|F|G|C|Dm7|G7|E7|Am|F|G|Am7|FM7|G|C|Bm7b5|E7|Am|Am/G|F#m7b5|FM7",
+    "[Rock] Brit Pop Anthem in G": "G in G Maj|D/F#|Em7|D|Cadd9|G/B|Am7|Dsus4|G|Gsus4|Em7|A7sus4|Cadd9|Dsus4|F|C/E|Eb|F|G|D7",
+    "[Oldies] 50s Prom Night in G": "G in G Maj|Em|C|D7|G|Em7|Am7|D7(b9)|G|B7|Em|G7|C|C#dim7|G/D|E7|A7|D7|G",
+    "[Jazz] Autumn Leaves in Gm": "Cm7 in G Min|F7|BbM7|EbM7|Am7b5|D7(b9)|Gm7|G7(alt)|Cm7|F7|Am7b5|D7(b9)|Gm7|Gb7|Fm7|E7|Am7b5|D7(alt)|Gm6|G7",
+    "[Jazz] Fly Me To The Moon in C": "Am7 in C Maj|Dm7|G7|CM7|FM7|Bm7b5|E7(b9)|Am7|A7|Dm7|G7|CM7|Bm7b5|E7(alt)|Am7|Dm7|G7|Em7|A7(b9)",
+    "[Jazz] Blues Standard in F": "F7 in F Maj|Bb7|F7|Cm7|F7|Bb7|Bdim7|F7|D7(alt)|Gm7|C7(b9)|F7|D7|Gm7|C7|F7|Ab7|Db7|Gb7|F7",
+    "[Bossa] Girl From Ipanema in F": "FM9 in F Maj|G13|Gm9|Gb7(#11)|FM9|GbM7|Cb9|F#m7|D7(b9)|Gm7|Eb7(9)|Am7|D7(b9)|Gm7|C7(b9)|FM9|F6|Gm7|C7(b9)",
+    "[Jazz] Take Five in Ebm": "Ebm in Eb Min|Bbm7|Ebm|Bbm7|Ebm|Bbm7|Ebm|Bbm7|Ebm|CbM7|Abm7|Bbm7|Ebm7|Abm7|Db7|GbM7|Fm7|Bb7(alt)|Ebm",
+    "[Jazz] Someday My Prince in Bb": "BbM7 in Bb Maj|D7(alt)|EbM7|G7(alt)|Cm7|G7(b13)|Cm7|F7|Dm7|G7|Cm7|F7|Dm7|C#dim7|Cm7|F7(b9)|BbM7|D7|Gm7|C7",
+    "[Fusion] Spain (Light as a Feather) in Bm": "Bm in B Min|GM7|F#7|Em7|A7|DM7|G#dim7|C#7|F#7|Bm7|B7|GM7|F#7|Em7|A7|DM7|C#m7b5|F#7(alt)|Bm7|Am7/D",
+    "[Jazz] Rhythm Changes in Bb": "BbM7 in Bb Maj|G7(b9)|Cm7|F7(13)|Dm7|G7(alt)|Cm7|F7|Fm7|Bb7|EbM7|Edim7|Dm7|G7|Cm7|F7|Bb6|Cm7/F|F7(b9)",
+    "[Jazz] All The Things in Ab": "Fm7 in Ab Maj|Bbm7|Eb7|AbM7|DbM7|Dm7|G7|CM7|C7|Cm7|Fm7|Bb7|EbM7|AbM7|Am7b5|D7|GM7|E7(alt)|C7(alt)",
+    "[Jazz] Green Dolphin St in Eb": "EbM7 in Eb Maj|GbM7|FM7|EM7|EbM7|Abm7|Db7|GbM7|Fm7|Bb7|AbM7|Abm7|EbM7|C7(alt)|Fm7|Bb7|EbM7|Fm7|Bb7|EbM7",
+    "[Jazz] Stella By Starlight in Bb": "Em7b5 in Bb Maj|A7(b9)|Cm7|F7|Fm7|Bb7|EbM7|Ab7(#11)|BbM7|Em7b5|A7(alt)|Dm7b5|G7(b9)|Cm7b5|F7(b9)|BbM7|Em7b5|A7(alt)|Dm7",
+    "[Jazz] Giant Steps Matrix in Eb": "BM7 in Eb Maj|D7|GM7|Bb7|EbM7|Am7|D7|GM7|Bb7|EbM7|F#7|BM7|Fm7|Bb7|EbM7|Am7|D7|GM7|C#m7|F#7",
+    "[Theory] Modal Mixture in C": "C in C Maj|Dm7|Em7|F|G7|Am7|Bb|Eb|Ab|DbM7|CM7|Fm7|Gm7|C7|Fm6|Bb7|AbM7|Db7|G7(alt)|CM9"
+};
+/* === THEORY HELPERS === */
+const Theory = {
+    CIRCLE: ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"],
+    CIRCLE_MINOR: ["Am", "Em", "Bm", "F#m", "C#m", "G#m", "D#m", "Bbm", "Fm", "Cm", "Gm", "Dm"],
+    LABELS_SHARP_5: { maj: "B", min: "G#m" }, LABELS_FLAT_5: { maj: "Cb", min: "Abm" },
+    LABELS_SHARP_6: { maj: "F#", min: "D#m" }, LABELS_FLAT_6: { maj: "Gb", min: "Ebm" },
+    LABELS_SHARP_7: { maj: "C#", min: "A#m" }, LABELS_FLAT_7: { maj: "Db", min: "Bbm" },
+    NOTES: ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'],
+    QUALITIES: ['M', 'm', 'sus2', 'sus4', 'M7', '7', 'm7', 'mM7', '6', 'm6', 'dim', 'aug', 'm7b5', 'dim7', '7sus4', 'add9'],
+    TENSIONS: ['b9', '9', '#9', '11', '#11', 'b13', '13', 'Alt'],
+    OMITS: ['no3', 'no5'],
+    toSemi(n) {
+        if(!n) return 0;
+        const root = n.replace(/[^A-G#b]/g, '').replace(/m.*/,'').substring(0,2).replace(/[^A-G#b]/,'');
+        const m = {'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11};
+        return m[root] !== undefined ? m[root] : m[n.substring(0,1)]||0;
+    },
+    transpose(note, semiDelta, targetKeyIdx) {
+        if(!note) return "";
+        const semi = this.toSemi(note); const newSemi = (semi + semiDelta + 120) % 12;
+        const isFlat = [11, 10, 9, 8, 7].includes(targetKeyIdx) || (targetKeyIdx === 6 && Theory.CIRCLE[6] === 'Gb');
+        const map = isFlat ? ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'] : ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        return map[newSemi];
+    },
+    getChordIntervals(quality, tensions, omits) {
+        let intervals = []; let typeMap = { 0: 'root' };
+        let third = 4; let fifth = 7; let seventh = -1;
+        if (quality.includes('m') && !quality.includes('maj') && !quality.includes('M7')) third = 3;
+        if (quality === 'dim' || quality === 'dim7' || quality === 'm7b5') { third = 3; fifth = 6; }
+        if (quality === 'aug') fifth = 8;
+        if (quality === 'sus4' || quality === '7sus4') third = 5;
+        if (quality === 'sus2') third = 2;
+        if (quality.includes('7')) seventh = 10;
+        if (quality.includes('M7') || quality === 'mM7') seventh = 11;
+        if (quality === 'dim7') seventh = 9;
+        if (quality.includes('6')) seventh = 9;
+        const no3 = omits.includes('no3'); const no5 = omits.includes('no5');
+        intervals.push(0);
+        if (!no3) { intervals.push(third); typeMap[third] = 'tone'; }
+        if (!no5) { intervals.push(fifth); typeMap[fifth] = 'tone'; }
+        if (seventh !== -1) { intervals.push(seventh); typeMap[seventh] = 'tone'; }
+        const tMap = { 'b9':1, '9':2, '#9':3, '11':5, '#11':6, 'b13':8, '13':9 };
+        let tList = [...tensions];
+        if (tList.includes('Alt')) { ['b9','#9','#11','b13'].forEach(t => { if(!tList.includes(t)) tList.push(t); }); }
+        tList.forEach(t => {
+            if (t === 'Alt') return;
+            const semi = tMap[t];
+            if (semi !== undefined) { if (!intervals.includes(semi)) intervals.push(semi); typeMap[semi] = 'tension'; }
+        });
+        return intervals.map(i => ({ semi: i, type: typeMap[i] || 'tone' }));
+    }
+};
+
+/* === STAFF RENDERING === */
+const SVG_PATHS = {
+    treble: "M 133.3 213.0 L 131.3 211.0 C 129.3 209.0 125.3 205.0 126.2 199.3 127.1 193.5 132.9 186.0 139.9 184.9 146.9 183.8 155.0 189.1 158.8 195.6 162.6 202.2 162.1 210.0 156.7 216.0 151.3 222.1 140.9 226.5 130.6 223.5 120.3 220.5 110.0 210.1 112.6 196.7 115.1 183.2 130.4 166.7 140.1 154.1 149.8 141.6 153.7 133.0 154.1 124.5 154.5 115.9 151.2 107.4 147.2 108.0 143.1 108.7 138.3 118.5 138.3 141.1 138.3 163.8 143.1 199.2 145.4 219.6 147.7 240.1 147.4 245.6 145.3 249.3 143.3 253.0 139.5 254.9 135.8 255.0 132.2 255.0 128.7 253.2 127.9 251.0 127.2 248.8 129.0 246.1 131.1 245.8 133.1 245.4 135.4 247.4 135.7 248.6 136.1 249.7 134.7 250.2 134.0 250.4 L 133.2 250.6",
+    bassHook: "M 170.7 156.1 L 169.8 156.1 C 169.0 156.1 167.3 156.1 166.5 155.2 C 165.6 154.3 165.6 152.5 166.9 151.3 C 168.1 150.2 170.6 149.6 172.6 150.5 C 174.6 151.5 176.0 154.0 174.8 156.0 C 173.5 158.1 169.6 159.7 166.3 158.5 C 163.0 157.3 160.4 153.4 161.3 148.3 C 162.3 143.2 166.8 136.9 174.3 134.3 C 181.7 131.7 192.2 132.8 198.3 136.8 C 204.4 140.8 206.3 147.7 206.5 154.6 C 206.7 161.6 205.3 168.5 202.3 175.2 C 199.3 181.8 194.7 188.2 188.3 193.4 C 181.8 198.6 173.6 202.6 169.5 204.7 L 165.4 206.7",
+    sharp: `<line x1="182.0" y1="192.7" x2="182.0" y2="251.8" stroke-width="3.1" /><line x1="190.0" y1="187.9" x2="190.0" y2="247.0" stroke-width="3.1" /><line x1="178.0" y1="209.0" x2="194.0" y2="206.0" stroke-width="7.0" /><line x1="178.0" y1="234.0" x2="194.0" y2="231.0" stroke-width="7.0" />`,
+    flat: `<polyline points="179.9 203.4 180.0 215.6 180.3 255.2" stroke-width="4" fill="none" /><path d="M 181.6 239.0 L 182.3 238.4 C 183.0 237.8 184.5 236.6 186.1 235.7 C 187.7 234.7 189.5 234.0 190.8 234.5 C 192.1 235.1 193.0 236.9 193.0 238.8 C 193.0 240.8 192.1 242.9 191.1 244.6 C 190.1 246.3 188.9 247.7 187.4 249.0 C 185.8 250.3 183.9 251.6 182.9 252.2 L 181.9 252.9" stroke-width="6" fill="none" />`
+};
+
+const StaffRenderer = {
+    renderTo(element, sigCount) {
+        if(!element) return;
+        let html = `<svg viewBox="0 0 180 200" width="100%" height="100%"><line x1="10" y1="30" x2="10" y2="150" class="st-brace"/><g transform="translate(10, 30)">`;
+        for(let i=0; i<5; i++) html += `<line x1="0" y1="${i*10}" x2="160" y2="${i*10}" class="st-line"/>`;
+        html += `<path d="${SVG_PATHS.treble}" transform="translate(-40, -55) scale(0.42)" class="st-clef-stroke"/>${this.getAccidentals(sigCount, true)}</g><g transform="translate(10, 110)">`;
+        for(let i=0; i<5; i++) html += `<line x1="0" y1="${i*10}" x2="160" y2="${i*10}" class="st-line"/>`;
+        html += `<g transform="translate(-54, -53) scale(0.42)"><path d="${SVG_PATHS.bassHook}" class="st-clef-stroke"/><circle cx="223.6" cy="142.1" r="5.1" class="st-clef-fill"/><circle cx="223.6" cy="166.3" r="5.1" class="st-clef-fill"/></g>${this.getAccidentals(sigCount, false)}</g></svg>`;
+        element.innerHTML = html;
+    },
+    getAccidentals(count, isTreble) {
+        let html = ''; const isSharp = count > 0; const num = Math.abs(count); const svgContent = isSharp ? SVG_PATHS.sharp : SVG_PATHS.flat;
+        const tSharpY = [0, 15, -5, 10, 25, 5, 20]; const tFlatY = [20, 5, 25, 10, 30, 15, 35];
+        const bSharpY = [10, 25, 5, 20, 35, 15, 30]; const bFlatY = [30, 15, 35, 20, 40, 25, 45];
+        const yArr = isTreble ? (isSharp ? tSharpY : tFlatY) : (isSharp ? bSharpY : bFlatY);
+        const startX = 50; const spacing = 10;
+        for (let i=0; i<num; i++) {
+            const x = startX + i * spacing; const y = yArr[i]; const xOffset = isSharp ? -183 : -180; const yOffset = isSharp ? -220 : -245;
+            html += `<g transform="translate(${x}, ${y}) scale(0.42) translate(${xOffset}, ${yOffset})" class="st-acc-custom">${svgContent}</g>`;
+        }
+        return html;
+    }
+};
+
+/* === FLOATING WIDGET CLASS === */
+class FloatingWidget {
+    constructor() {
+        const D = WIDGET_CONFIG.DOM;
+        this.dom = document.getElementById(D.ID_WIDGET);
+        this.cofContainer = document.getElementById(D.ID_CONTAINER_COF);
+        this.staffWrapper = document.getElementById(D.ID_WRAPPER_STAFF);
+        this.staffContainer = document.getElementById(D.ID_CONTAINER_STAFF);
+        this.handle = document.getElementById(D.ID_HANDLE);
+        
+        // Cache Overlay Elements
+        this.elKey = document.getElementById(D.ID_OVERLAY_KEY);
+        this.elChord = document.getElementById(D.ID_OVERLAY_CHORD);
+        
+        this.isVisible = false;
+        this.isExpanded = false;
+        this.isDragging = false;
+        this.dragOffset = { x: 0, y: 0 };
+        
+        this.setupDrag();
+        this.setupResizeListener();
+    }
+
+    toggle() {
+        this.isVisible = !this.isVisible;
+        this.dom.style.display = this.isVisible ? 'flex' : 'none';
+        
+        // Ensure position is valid upon showing (in case window resized while hidden)
+        if (this.isVisible) this.constrainPosition();
+        
+        return this.isVisible;
+    }
+
+    setExpanded(expanded) {
+        this.isExpanded = expanded;
+        if(expanded) this.dom.classList.add(WIDGET_CONFIG.DOM.CLASS_EXPANDED);
+        else this.dom.classList.remove(WIDGET_CONFIG.DOM.CLASS_EXPANDED);
+        
+        // Re-constrain after expansion animation implies a size change
+        // We use a small timeout to allow CSS transition to start/finish
+        setTimeout(() => this.constrainPosition(), 350); 
+    }
+
+    toggleExpand() {
+        this.setExpanded(!this.isExpanded);
+    }
+
+    /**
+     * Updates the text overlays within the widget.
+     * @param {string|null} keyText - Text for Top-Left (Key)
+     * @param {string|null} chordText - Text for Bottom-Right (Chord)
+     */
+    updateInfo(keyText, chordText) {
+        if (keyText && this.elKey) this.elKey.textContent = keyText;
+        if (chordText && this.elChord) this.elChord.textContent = chordText;
+    }
+
+    setupDrag() {
+        const start = (e) => {
+            if (e.target.closest('.' + WIDGET_CONFIG.DOM.CLASS_TOGGLE_BTN)) return;
+            e.preventDefault();
+            this.isDragging = true;
+            this.handle.style.cursor = WIDGET_CONFIG.DRAG.CURSOR_GRABBING;
+            const pt = e.touches ? e.touches[0] : e;
+            const rect = this.dom.getBoundingClientRect();
+            this.dragOffset.x = pt.clientX - rect.left;
+            this.dragOffset.y = pt.clientY - rect.top;
+        };
+
+        const move = (e) => {
+            if (!this.isDragging) return;
+            e.preventDefault();
+            const pt = e.touches ? e.touches[0] : e;
+            let x = pt.clientX - this.dragOffset.x;
+            let y = pt.clientY - this.dragOffset.y;
+            
+            this.applyPosition(x, y);
+        };
+
+        const end = () => {
+            this.isDragging = false;
+            this.handle.style.cursor = WIDGET_CONFIG.DRAG.CURSOR_GRAB;
+        };
+
+        this.handle.addEventListener('mousedown', start);
+        this.handle.addEventListener('touchstart', start, {passive: false});
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchmove', move, {passive: false});
+        window.addEventListener('mouseup', end);
+        window.addEventListener('touchend', end);
+    }
+    
+    setupResizeListener() {
+        window.addEventListener('resize', () => {
+             if (this.isVisible) this.constrainPosition();
+        });
+    }
+
+    applyPosition(x, y) {
+        // Calculate Boundaries based on current Viewport and Widget Size
+        const maxX = window.innerWidth - this.dom.offsetWidth;
+        const maxY = window.innerHeight - this.dom.offsetHeight;
+        
+        // Constrain
+        const safeX = Math.max(0, Math.min(x, maxX));
+        const safeY = Math.max(0, Math.min(y, maxY));
+        
+        this.dom.style.left = safeX + 'px';
+        this.dom.style.top = safeY + 'px';
+    }
+
+    constrainPosition() {
+        // Reads current left/top and reapplies constraints
+        // Useful when window resizes or widget expands
+        const rect = this.dom.getBoundingClientRect();
+        this.applyPosition(rect.left, rect.top);
+    }
+}
+
+/* === CoF Logic === */
+const COF_CONFIG = { 
+    CENTER_X: 210, 
+    CENTER_Y: 210, 
+    RADIUS_OUTER_END: 175, 
+    RADIUS_MID: 115,       
+    RADIUS_INNER_END: 60,  
+    KNOB_POS_RADIUS: 195   
+};
+
+/* === CoF Logic === */
+/* === UPDATED CoF MODULE (Robust Spelling) === */
+const CoF = {
+    // State
+    rotation: 0,
+    currentMode: 'Maj', 
+    spellingMode: 'SHARP', 
+    
+    // DOM Cache
+    svg: null, wheelG: null, handleG: null, currentContainer: null, isDragging: false,
+
+    // Definitions
+    // Sharp Set: Uses flats for 7-11 (Db-Bb) to look correct in C Major context
+    LABELS_SHARP: ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F'],
+    // Flat Set: Uses Cb for index 5 to be theoretically correct in deep flat keys
+    LABELS_FLAT:  ['C', 'G', 'D', 'A', 'E', 'Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'],
+    LABELS_MINOR: ['Am', 'Em', 'Bm', 'F#m', 'C#m', 'G#m', 'D#m', 'Bbm', 'Fm', 'Cm', 'Gm', 'Dm'],
+
+    init() {
+        const ns = "http://www.w3.org/2000/svg";
+        this.svg = document.createElementNS(ns, "svg"); 
+        this.svg.setAttribute("viewBox", "0 0 420 420"); 
+        
+        const defs = document.createElementNS(ns, "defs"); 
+        defs.innerHTML = `<radialGradient id="knobGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%"><stop offset="0%" style="stop-color:#fafafa; stop-opacity:1" /><stop offset="100%" style="stop-color:#999; stop-opacity:1" /></radialGradient>`;
+        this.svg.appendChild(defs); 
+        
+        this.wheelG = document.createElementNS(ns, "g"); 
+        this.wheelG.setAttribute("id", "wheel-group");
+        this.wheelG.setAttribute("transform", `rotate(0, ${COF_CONFIG.CENTER_X}, ${COF_CONFIG.CENTER_Y})`);
+        this.svg.appendChild(this.wheelG);
+        
+        for(let i=0; i<12; i++) { this.wheelG.appendChild(this.createSectorGroup(i)); }
+        
+        this.renderHandle(ns); 
+        this.renderCenterButton(ns); 
+        this.setupDrag(); 
+    },
+
+    mount(container) {
+        if (!container || this.currentContainer === container) return;
+        container.innerHTML = ''; container.appendChild(this.svg); this.currentContainer = container;
+    },
+    
+    createSectorGroup(idx) {
+        const ns = "http://www.w3.org/2000/svg"; 
+        const group = document.createElementNS(ns, "g");
+        group.setAttribute("class", "sector-group"); 
+        group.setAttribute("data-idx", idx);
+        
+        const deg = idx * 30; const centerAngle = deg - 90;
+        const startRad = (centerAngle - 15) * Math.PI/180; const endRad = (centerAngle + 15) * Math.PI/180;
+        const cx=COF_CONFIG.CENTER_X, cy=COF_CONFIG.CENTER_Y;
+        
+        const pathOuter = document.createElementNS(ns, "path");
+        pathOuter.setAttribute("d", this.getSectorPath(cx, cy, COF_CONFIG.RADIUS_MID, COF_CONFIG.RADIUS_OUTER_END, startRad, endRad));
+        pathOuter.setAttribute("class", "sector-path sector-outer"); 
+        
+        const pathInner = document.createElementNS(ns, "path");
+        pathInner.setAttribute("d", this.getSectorPath(cx, cy, COF_CONFIG.RADIUS_INNER_END, COF_CONFIG.RADIUS_MID, startRad, endRad));
+        pathInner.setAttribute("class", "sector-path sector-inner"); 
+        
+        // Hit logic
+        const hit = (e, isInner) => { 
+            if(this.isDragging) return; e.preventDefault(); e.stopPropagation();
+            const labels = (this.spellingMode === 'SHARP') ? this.LABELS_SHARP : this.LABELS_FLAT;
+            const rootName = isInner ? this.LABELS_MINOR[idx] : labels[idx];
+            if (app.isEditing) app.setFromCoF(rootName); else audioEngine.stopChords();
+        };
+        pathOuter.addEventListener('mousedown', (e)=>hit(e,false)); pathOuter.addEventListener('touchstart', (e)=>hit(e,false), {passive:false});
+        pathInner.addEventListener('mousedown', (e)=>hit(e,true)); pathInner.addEventListener('touchstart', (e)=>hit(e,true), {passive:false});
+
+        // Text Generation
+        const rTxtOuter = (COF_CONFIG.RADIUS_MID + COF_CONFIG.RADIUS_OUTER_END) / 2;
+        const rTxtInner = (COF_CONFIG.RADIUS_INNER_END + COF_CONFIG.RADIUS_MID) / 2;
+        const txO = cx + rTxtOuter * Math.cos(centerAngle * Math.PI/180); const tyO = cy + rTxtOuter * Math.sin(centerAngle * Math.PI/180);
+        const txI = cx + rTxtInner * Math.cos(centerAngle * Math.PI/180); const tyI = cy + rTxtInner * Math.sin(centerAngle * Math.PI/180);
+        
+        const txtO = this.createText(ns, txO, tyO, this.LABELS_SHARP[idx], "sector-text outer");
+        const txtI = this.createText(ns, txI, tyI, this.LABELS_MINOR[idx], "sector-text inner");
+        
+        group.appendChild(pathOuter); group.appendChild(pathInner); group.appendChild(txtO); group.appendChild(txtI);
+        return group;
+    },
+    
+    getSectorPath(cx, cy, rIn, rOut, start, end) { const x1 = cx + rOut*Math.cos(start); const y1 = cy + rOut*Math.sin(start); const x2 = cx + rOut*Math.cos(end); const y2 = cy + rOut*Math.sin(end); const x3 = cx + rIn*Math.cos(end); const y3 = cy + rIn*Math.sin(end); const x4 = cx + rIn*Math.cos(start); const y4 = cy + rIn*Math.sin(start); return `M ${x1} ${y1} A ${rOut} ${rOut} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${rIn} ${rIn} 0 0 0 ${x4} ${y4} Z`; },
+    createText(ns, x, y, content, cls) { const t = document.createElementNS(ns, "text"); t.setAttribute("x", x); t.setAttribute("y", y); t.setAttribute("class", cls); t.textContent = content; t.setAttribute("data-base-x", x); t.setAttribute("data-base-y", y); t.setAttribute("transform", `rotate(0, ${x}, ${y})`); return t; },
+    renderHandle(ns) { const cx = COF_CONFIG.CENTER_X, cy = COF_CONFIG.CENTER_Y; const ky = cy - COF_CONFIG.KNOB_POS_RADIUS; this.handleG = document.createElementNS(ns, "g"); this.handleG.setAttribute("class", "handle-group"); const arrPath = document.createElementNS(ns, "path"); arrPath.setAttribute("d", `M ${cx-30} ${ky} L ${cx-20} ${ky-6} L ${cx-20} ${ky+6} Z M ${cx+30} ${ky} L ${cx+20} ${ky-6} L ${cx+20} ${ky+6} Z`); arrPath.setAttribute("class", "knob-arrow"); const knob = document.createElementNS(ns, "circle"); knob.setAttribute("cx", cx); knob.setAttribute("cy", ky); knob.setAttribute("r", 15); knob.setAttribute("class", "knob-grip"); const hit = document.createElementNS(ns, "circle"); hit.setAttribute("cx", cx); hit.setAttribute("cy", ky); hit.setAttribute("r", 40); hit.setAttribute("class", "knob-hit"); this.handleG.appendChild(knob); this.handleG.appendChild(arrPath); this.handleG.appendChild(hit); this.wheelG.appendChild(this.handleG); },
+    renderCenterButton(ns) { const cx = COF_CONFIG.CENTER_X, cy = COF_CONFIG.CENTER_Y; const g = document.createElementNS(ns, "g"); g.setAttribute("class", "center-btn-group"); g.onclick = (e) => { e.stopPropagation(); app.handleCoFCenterClick(); }; const circle = document.createElementNS(ns, "circle"); circle.setAttribute("cx", cx); circle.setAttribute("cy", cy); circle.setAttribute("r", 35); circle.setAttribute("class", "center-btn-circle"); g.appendChild(circle); const txt = document.createElementNS(ns, "text"); txt.setAttribute("x", cx); txt.setAttribute("y", cy); txt.setAttribute("class", "center-btn-text"); txt.textContent = "Clef"; g.appendChild(txt); this.svg.appendChild(g); },
+
+    setupDrag() {
+        this.isDragging = false; 
+        let startAngle = 0, startRot = 0, lastAngle = 0;
+        
+        const getAngle = (clientX, clientY) => { 
+            const rect = this.svg.getBoundingClientRect(); 
+            return Math.atan2(clientY - (rect.top + rect.height/2), clientX - (rect.left + rect.width/2)); 
+        };
+        
+        const start = (e) => {
+            if (e.target.closest('.center-btn-group')) return;
+            this.isDragging = true; 
+            this.handleG.style.cursor = "grabbing";
+            const pt = e.touches ? e.touches[0] : e; 
+            startAngle = getAngle(pt.clientX, pt.clientY); 
+            lastAngle = startAngle;
+            startRot = this.rotation; 
+            e.preventDefault();
+        };
+        
+        const move = (e) => {
+            if(!this.isDragging) return;
+            e.preventDefault(); 
+            const pt = e.touches ? e.touches[0] : e;
+            const currentAngle = getAngle(pt.clientX, pt.clientY);
+            
+            // Spelling Switch Logic
+            let angDiff = (currentAngle - lastAngle) * 180 / Math.PI;
+            if (angDiff < -180) angDiff += 360;
+            if (angDiff > 180) angDiff -= 360;
+            
+            if (Math.abs(angDiff) > 0.5) {
+                // Clockwise (>0): Moving C -> F -> Bb. Flat Mode.
+                if (angDiff > 0 && this.spellingMode !== 'FLAT') this.setLabelsFlat();
+                // Counter-Clockwise (<0): Moving C -> G -> D. Sharp Mode.
+                if (angDiff < 0 && this.spellingMode !== 'SHARP') this.setLabelsSharp();
+            }
+            lastAngle = currentAngle;
+
+            let diff = (currentAngle - startAngle) * 180 / Math.PI;
+            if (diff <= -180) diff += 360; 
+            else if (diff > 180) diff -= 360;
+            
+            this.updateRotation(startRot + diff);
+        };
+        
+        const end = () => { 
+            if(!this.isDragging) return; 
+            this.isDragging = false; 
+            this.handleG.style.cursor = "grab"; 
+            const snapped = Math.round(this.rotation / 30) * 30;
+            this.animateTo(snapped); 
+        };
+        
+        this.handleG.addEventListener('mousedown', start); this.handleG.addEventListener('touchstart', start, {passive:false});
+        window.addEventListener('mousemove', move); window.addEventListener('mouseup', end); 
+        window.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+    },
+
+    setLabelsSharp() {
+        this.spellingMode = 'SHARP';
+        const texts = this.wheelG.querySelectorAll('.sector-text.outer');
+        texts.forEach((t, i) => { t.textContent = this.LABELS_SHARP[i]; });
+    },
+    
+    setLabelsFlat() {
+        this.spellingMode = 'FLAT';
+        const texts = this.wheelG.querySelectorAll('.sector-text.outer');
+        texts.forEach((t, i) => { t.textContent = this.LABELS_FLAT[i]; });
+    },
+
+    setKey(rootIdx, mode, doAnimate = true) {
+        const targetRot = -rootIdx * 30;
+        this.currentMode = mode;
+        
+        // Initial Logic for Programmatic Setting (e.g., Presets)
+        // Indices 6-11 (F#/Gb -> F) default to Flat
+        if (rootIdx >= 6) this.setLabelsFlat();
+        else this.setLabelsSharp();
+
+        if (doAnimate) this.animateTo(targetRot);
+        else { this.updateRotation(targetRot); this.finishRotation(targetRot); }
+    },
+
+    toggleMode() {
+        this.currentMode = (this.currentMode === 'Maj') ? 'Min' : 'Maj';
+        this.updateHighlights();
+        return this.currentMode;
+    },
+
+    animateTo(target) { 
+        const step = () => { 
+            let diff = target - this.rotation; 
+            if(Math.abs(diff) < 0.5) { this.updateRotation(target); this.finishRotation(target); return; } 
+            this.updateRotation(this.rotation + diff * 0.2); 
+            requestAnimationFrame(step); 
+        }; 
+        step(); 
+    },
+    
+    updateRotation(deg) {
+        this.rotation = deg; 
+        this.wheelG.setAttribute("transform", `rotate(${deg}, ${COF_CONFIG.CENTER_X}, ${COF_CONFIG.CENTER_Y})`);
+        const texts = this.wheelG.querySelectorAll('.sector-text');
+        texts.forEach(t => { 
+            const bx = parseFloat(t.getAttribute('data-base-x')); const by = parseFloat(t.getAttribute('data-base-y')); 
+            t.setAttribute("transform", `rotate(${-deg}, ${bx}, ${by})`); 
+        });
+    },
+
+    finishRotation(deg) { 
+        let steps = Math.round(deg / 30); 
+        let newIdx = ((-steps % 12) + 12) % 12; 
+        app.handleCoFRotation(newIdx);
+        this.updateHighlights();
+    },
+
+    updateHighlights() {
+        const rootIdx = app.globalKey.root;
+        const mode = this.currentMode;
+        
+        // FIX: Enforce Spelling based on Key to fix drag wiggle/overshoot issues
+        // If we landed on F, Bb, Eb, Ab, Db (7-11), force Flat Mode.
+        // If we landed on G, D, A, E, B (1-5), force Sharp Mode.
+        // C (0) and F#/Gb (6) are ambiguous, so we trust the last drag direction.
+        if (rootIdx >= 7 && rootIdx <= 11) {
+            if (this.spellingMode !== 'FLAT') this.setLabelsFlat();
+        } else if (rootIdx >= 1 && rootIdx <= 5) {
+            if (this.spellingMode !== 'SHARP') this.setLabelsSharp();
+        }
+
+        const labels = (this.spellingMode === 'SHARP') ? this.LABELS_SHARP : this.LABELS_FLAT;
+        const rootName = labels[rootIdx];
+        const minRootName = this.LABELS_MINOR[rootIdx];
+
+        // 1. Reset
+        const groups = this.wheelG.querySelectorAll('.sector-group');
+        groups.forEach(g => {
+            g.querySelector('.sector-outer').classList.remove('highlight-diatonic', 'highlight-sub', 'highlight-active'); 
+            g.querySelector('.sector-inner').classList.remove('highlight-diatonic', 'highlight-active');
+            g.querySelector('.sector-outer').style.fillOpacity = "";
+            g.querySelector('.sector-inner').style.fillOpacity = "";
+        });
+        
+        // 2. Diatonic Neighbors
+        [-1, 0, 1].forEach(off => { 
+            const targetIdx = (rootIdx + off + 12) % 12; 
+            const g = this.wheelG.querySelector(`.sector-group[data-idx="${targetIdx}"]`); 
+            if(g) { g.querySelector('.sector-outer').classList.add('highlight-diatonic'); g.querySelector('.sector-inner').classList.add('highlight-diatonic'); } 
+        });
+        
+        // 3. Active Mode Emphasis
+        const centerG = this.wheelG.querySelector(`.sector-group[data-idx="${rootIdx}"]`);
+        if (centerG) {
+            if (mode === 'Maj') centerG.querySelector('.sector-outer').style.fillOpacity = "1.0"; 
+            else centerG.querySelector('.sector-inner').style.fillOpacity = "1.0"; 
+        }
+        
+        // 4. Update UI Text
+        const keyLabel = `Key: ${mode === 'Maj' ? rootName : minRootName} (${mode})`;
+        const elKey = document.getElementById('widget-overlay-key');
+        if (elKey) elKey.innerText = keyLabel;
+        
+        const elToggle = document.getElementById('widget-toggle-mode');
+        if (elToggle) elToggle.innerText = mode;
+
+        // 5. Update Staff
+        const sigs = [0, 1, 2, 3, 4, 5, 6, -5, -4, -3, -2, -1];
+        let sigCount = sigs[rootIdx];
+        if (this.spellingMode === 'FLAT') {
+            if (rootIdx === 6) sigCount = -6; // Gb
+            if (rootIdx === 5) sigCount = -7; // Cb
+        } else {
+            if (rootIdx === 7) sigCount = 7; // C#
+        }
+        StaffRenderer.renderTo(document.getElementById('staffBox'), sigCount);
+        StaffRenderer.renderTo(document.getElementById('widget-staff-container'), sigCount);
+    },
+    
+    highlightChord(root, quality) {
+        const groups = this.wheelG.querySelectorAll('.sector-group');
+        groups.forEach(g => {
+            g.querySelector('.sector-outer').classList.remove('highlight-active');
+            g.querySelector('.sector-inner').classList.remove('highlight-active');
+            g.querySelector('.sector-text.outer').classList.remove('highlight-active-text');
+            g.querySelector('.sector-text.inner').classList.remove('highlight-active-text');
+        });
+
+        const r = root.replace(/\d|m|dim|aug|sus|M|add/g,'');
+        const isMin = quality.match(/^(m|m7|m6|m7b5|dim|dim7|mM7)$/);
+        
+        if (!isMin) { 
+            let targetIdx = this.LABELS_SHARP.indexOf(r);
+            if (targetIdx === -1) targetIdx = this.LABELS_FLAT.indexOf(r);
+            if (targetIdx === -1) targetIdx = Theory.CIRCLE.indexOf(r);
+
+            if(targetIdx !== -1) { 
+                const g = this.wheelG.querySelector(`.sector-group[data-idx="${targetIdx}"]`); 
+                if(g) { 
+                    g.querySelector('.sector-outer').classList.add('highlight-active'); 
+                    g.querySelector('.sector-text.outer').classList.add('highlight-active-text'); 
+                } 
+            } 
+        } else { 
+            let targetIdx = Theory.CIRCLE_MINOR.findIndex(m => m === r + "m" || m === r); 
+            if(targetIdx !== -1) { 
+                const g = this.wheelG.querySelector(`.sector-group[data-idx="${targetIdx}"]`); 
+                if(g) { 
+                    g.querySelector('.sector-inner').classList.add('highlight-active'); 
+                    g.querySelector('.sector-text.inner').classList.add('highlight-active-text'); 
+                } 
+            } 
+        }
+    }
+};
+/* === Sound Engine === */
+class SoundEngine {
+    constructor() {
+        this.ctx = null; this.masterCompressor = null;
+        this.activeChordVoices = {}; this.activeKeyVoices = {}; this.activeTimers = []; this.initPromise = null;
+    }
+    async init() {
+        if (this.initPromise) return this.initPromise;
+        this.initPromise = (async () => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!this.ctx) {
+                    this.ctx = new AudioContext({ latencyHint: 'interactive' });
+                    this.masterCompressor = this.ctx.createDynamicsCompressor();
+                    this.masterCompressor.threshold.value = AUDIO_CONFIG.COMPRESSOR.THRESHOLD;
+                    this.masterCompressor.knee.value = AUDIO_CONFIG.COMPRESSOR.KNEE;
+                    this.masterCompressor.ratio.value = AUDIO_CONFIG.COMPRESSOR.RATIO;
+                    this.masterCompressor.attack.value = AUDIO_CONFIG.COMPRESSOR.ATTACK;
+                    this.masterCompressor.release.value = AUDIO_CONFIG.COMPRESSOR.RELEASE;
+                    this.masterCompressor.connect(this.ctx.destination);
+                }
+            } catch(e) { Logger.log('ERR', 'Audio Init Failed', e.message); alert('Audio Init Error'); }
+        })();
+        return this.initPromise;
+    }
+    async playChord(voicing, bass, sustain, element, timestamp) {
+        await this.init();
+        if (element && element.dataset.padHitTime !== String(timestamp)) return;
+        this.stopChords();
+        try {
+            const allNotes = [];
+            const bassFreq = AUDIO_CONFIG.CONCERT_A_FREQ * Math.pow(2, (bass - AUDIO_CONFIG.CONCERT_A_MIDI) / AUDIO_CONFIG.SEMITONES_PER_OCTAVE);
+            allNotes.push({ freq: bassFreq, midi: bass, layer: 'bass', vol: AUDIO_CONFIG.VOL_BASS });
+            voicing.forEach(midi => {
+                const freq = AUDIO_CONFIG.CONCERT_A_FREQ * Math.pow(2, (midi - AUDIO_CONFIG.CONCERT_A_MIDI) / AUDIO_CONFIG.SEMITONES_PER_OCTAVE);
+                allNotes.push({ freq, midi, layer: 'chord', vol: AUDIO_CONFIG.VOL_CHORD });
+            });
+            const startTime = this.ctx.currentTime + AUDIO_CONFIG.TIMING.SCHEDULE_AHEAD;
+            allNotes.forEach((note, i) => {
+                const timerId = setTimeout(() => {
+                    const distance = Math.abs(note.midi - AUDIO_CONFIG.VOLUME_CENTER_NOTE);
+                    const curve = Math.pow(AUDIO_CONFIG.VOLUME_OCTAVE_CURVE, distance / AUDIO_CONFIG.SEMITONES_PER_OCTAVE);
+                    const finalVol = Math.max(note.vol * curve, AUDIO_CONFIG.VOLUME_MIN_THRESHOLD);
+                    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); const filter = this.ctx.createBiquadFilter();
+                    osc.type = (note.layer === 'bass') ? AUDIO_CONFIG.OSC_BASS : AUDIO_CONFIG.OSC_CHORD;
+                    osc.frequency.value = note.freq; filter.type = 'lowpass';
+                    filter.frequency.value = (note.layer === 'bass') ? AUDIO_CONFIG.LPF_BASS : AUDIO_CONFIG.LPF_CHORD;
+                    gain.gain.setValueAtTime(0, startTime); gain.gain.linearRampToValueAtTime(finalVol, startTime + AUDIO_CONFIG.ENVELOPE.CHORD_ATTACK);
+                    osc.connect(filter); filter.connect(gain); gain.connect(this.masterCompressor); osc.start(startTime);
+                    const voiceId = `chord-${i}-${Date.now()}`; this.activeChordVoices[voiceId] = { osc, gain, filter };
+                }, i * AUDIO_CONFIG.ARPEGGIO_NOTE_DELAY);
+                this.activeTimers.push(timerId);
+            });
+        } catch(e) { Logger.log('ERR', 'PlayChord Exception', e.message); }
+    }
+    async playKey(freq, voiceId, sustain = false) {
+        await this.init();
+        const isValidVoice = () => { for (const [id, data] of app.kbState.activeTouches) { if (data.voiceId === voiceId) return true; } return false; };
+        if (!isValidVoice()) return;
+        try {
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); const filter = this.ctx.createBiquadFilter();
+            osc.frequency.value = freq; osc.type = AUDIO_CONFIG.OSC_KEYBOARD; filter.type = 'lowpass'; filter.frequency.value = AUDIO_CONFIG.LPF_KEYBOARD;
+            const startTime = this.ctx.currentTime + AUDIO_CONFIG.TIMING.SCHEDULE_AHEAD;
+            gain.gain.setValueAtTime(0, startTime); gain.gain.linearRampToValueAtTime(AUDIO_CONFIG.VOL_KEYBOARD, startTime + AUDIO_CONFIG.ENVELOPE.KEY_ATTACK);
+            osc.connect(filter); filter.connect(gain); gain.connect(this.masterCompressor); osc.start(startTime);
+            this.activeKeyVoices[voiceId] = { osc, gain, filter };
+        } catch(e) { Logger.log('ERR', 'PlayKey Exception', e.message); }
+    }
+    stopChords() {
+        this.activeTimers.forEach(id => clearTimeout(id)); this.activeTimers = [];
+        Object.keys(this.activeChordVoices).forEach(id => this._stopVoice(this.activeChordVoices, id, AUDIO_CONFIG.ENVELOPE.CHORD_RELEASE));
+    }
+    stopKeys() { Object.keys(this.activeKeyVoices).forEach(id => this._stopVoice(this.activeKeyVoices, id, AUDIO_CONFIG.ENVELOPE.KEY_RELEASE)); }
+    stopAll() { this.stopChords(); this.stopKeys(); }
+    _stopVoice(voicesObj, voiceId, releaseTime) {
+        if (!voicesObj[voiceId]) return;
+        const voice = voicesObj[voiceId];
+        try {
+            if (voice.gain && voice.osc) {
+                const now = this.ctx.currentTime + 0.005;
+                voice.gain.gain.cancelScheduledValues(now); voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+                voice.gain.gain.setTargetAtTime(0, now, releaseTime / 5); voice.osc.stop(now + releaseTime + 0.1);
+            }
+            setTimeout(() => { delete voicesObj[voiceId]; }, (releaseTime * 1000) + 200);
+        } catch(e) { delete voicesObj[voiceId]; }
+    }
+}
+const audioEngine = new SoundEngine();
+
+/* === Application Logic === */
+/* === COMPLETE APP LOGIC === */
+const app = {
+    // === STATE ===
+    pads: Array(20).fill(null),
+    
+    // Global Key Management (Phase 2)
+    globalKey: { root: 0, mode: 'Maj' }, 
+    
+    // Edit Mode State
+    editPadIdx: -1, 
+    isEditPending: false, 
+    isEditing: false, 
+    activePadIdx: -1,
+    
+    // Voicing State
+    voicingState: { lastPad: null, lastVoicing: null, lastBass: null, lastTapTime: 0 },
+    
+    // Keyboard State
+    kbState: { 
+        scale: 1.0, 
+        translateX: UI_CONFIG.KEYBOARD_INIT_TRANSLATE_X, 
+        activeTouches: new Map(),
+        minScale: UI_CONFIG.KEYBOARD_MIN_SCALE,
+        maxScale: UI_CONFIG.KEYBOARD_MAX_SCALE,
+        lastX: 0,
+        lastDist: 0
+    },
+    
+    // Toggles
+    isSC: false, isSK: false, isVC: false,
+    
+    // Modules
+    widget: null,
+    resizeTimeout: null,
+    longPressTimer: null,
+
+    // === INITIALIZATION ===
+    init() {
+        Logger.log('SYS', 'App Initialized v5.4');
+        
+        // Inject new Edit Controls (Phase 2)
+        this.injectEditControls();
+
+        // Populate Presets
+        const select = document.getElementById('preset-select-main');
+        if (select) {
+            select.innerHTML = '<option value="" disabled selected>Load Preset</option>';
+            Object.keys(PRESETS).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name; option.textContent = name; select.appendChild(option);
+            });
+        }
+
+        // Initialize Components
+        this.renderKeyboard();
+        this.initControls();
+        this.initBassKeyboard();
+        this.setupKeyboardInteraction();
+        this.setupLogoLongPress();
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+        
+        window.addEventListener('resize', () => { 
+            clearTimeout(this.resizeTimeout); 
+            this.resizeTimeout = setTimeout(() => this.renderKeyboard(), UI_CONFIG.RESIZE_DEBOUNCE_MS); 
+        });
+
+        // Initialize CoF & Widget
+        CoF.init();
+        this.widget = new FloatingWidget();
+        CoF.mount(this.widget.cofContainer);
+
+        // Load Default Preset
+        this.loadPreset('[Basic] Diatonic & Functional in C');
+        this.fitKeyboardRange();
+    },
+    
+    // === DOM INJECTION (NEW) ===
+		injectEditControls() {
+        const rightPanel = document.querySelector('.edit-right');
+        if (!rightPanel) return;
+        
+        // Prevent duplicates
+        if (rightPanel.querySelector('.key-context-group')) return;
+        
+        const container = document.createElement('div');
+        container.className = "control-group key-context-group";
+        
+        // 3-Way Selection: Auto | Major (Root) | Minor (Root)
+        container.innerHTML = `
+            <div class="control-label">Key Context</div>
+            <div class="key-context-row">
+                <div class="btn-context active" id="btn-ctx-auto" onclick="app.setKeyContextMode('Auto')">Auto<br>(Inherit)</div>
+                <div class="btn-context" id="btn-ctx-maj" onclick="app.setKeyContextMode('Maj')">Major</div>
+                <div class="btn-context" id="btn-ctx-min" onclick="app.setKeyContextMode('Min')">Minor</div>
+            </div>
+            <div style="text-align:center; font-size:9px; color:#888; margin-top:4px;">
+                Rotate CoF to change Root
+            </div>
+        `;
+        rightPanel.appendChild(container);
+    }, 
+
+    // === DATA & PARSING ===
+    loadPreset(presetName) {
+        const data = PRESETS[presetName]; if (!data) return;
+        const lines = data.split('|').map(l => l.trim()).filter(l => l !== '');
+        
+        // Reset Pads
+        for (let i = 0; i < 20; i++) { 
+            this.pads[i] = { 
+                id: i, 
+                root: 'C', quality: 'M', tensions: [], omit: [], bass: '',
+                contextKey: { root: 0, mode: 'Maj' },
+                isExplicitKey: false 
+            }; 
+        }
+
+        // Parse
+        for (let i = 0; i < 20; i++) { 
+            if (i < lines.length) this.parseChordLine(i, lines[i]); 
+            else this.recalcContext(i); // Propagate context to empty pads
+        }
+        
+        // Initialize Global Key from Pad 0
+        const p0 = this.pads[0];
+        this.globalKey = { ...p0.contextKey };
+        CoF.setKey(this.globalKey.root, this.globalKey.mode);
+        
+        // Precompute Logic for Voicing (Legacy support)
+        this.precomputeDominantInfo();
+
+        this.renderPads();
+        const select = document.getElementById('preset-select-main'); 
+        if (select) select.value = "";
+    },
+
+    parseChordLine(idx, str) {
+        let cleanStr = str;
+        
+        // 1. Extract 'in [Key] [Mode]'
+        const inMatch = cleanStr.match(/\s+in\s+([A-G][#b]?)\s+(Maj|Min)$/i);
+        let ctxRoot = null;
+        let ctxMode = null;
+        let isExplicit = false;
+
+        if (inMatch) {
+            const keyStr = inMatch[1];
+            const modeStr = inMatch[2];
+            
+            // Resolve Key Root to Index
+            let kIdx = Theory.CIRCLE.indexOf(keyStr); 
+            if (kIdx === -1) kIdx = Theory.CIRCLE_MINOR.indexOf(keyStr);
+            if (kIdx === -1) kIdx = 0; // Default C
+            
+            ctxRoot = kIdx;
+            ctxMode = (modeStr.toLowerCase().startsWith('min')) ? 'Min' : 'Maj';
+            isExplicit = true;
+            
+            // Remove 'in ...' from string
+            cleanStr = cleanStr.substring(0, inMatch.index);
+        }
+
+        // 2. Parse Chord
+        let bass = ''; 
+        let main = cleanStr; 
+        if (cleanStr.includes('/')) { 
+            const parts = cleanStr.split('/'); 
+            main = parts[0]; 
+            bass = parts[1].trim(); 
+        }
+        
+        let tensions = []; let omits = [];
+        if (main.toLowerCase().includes('alt') && !main.includes('(')) { tensions.push('Alt'); main = main.replace(/alt/i, ''); }
+        
+        const parenMatch = main.match(/\(([^)]+)\)/);
+        if (parenMatch) {
+            const content = parenMatch[1]; main = main.replace(parenMatch[0], '');
+            const items = content.split(/[, ]+/);
+            items.forEach(item => { 
+                const clean = item.trim(); 
+                if (clean === 'alt' || clean === 'Alt') tensions.push('Alt'); 
+                else if (clean.startsWith('no')) omits.push(clean); 
+                else tensions.push(clean); 
+            });
+        }
+        
+        const rootMatch = main.match(/^([A-G][#b]?)(.*)/);
+        if (!rootMatch) { 
+             this.recalcContext(idx);
+             return; 
+        }
+        
+        let root = rootMatch[1]; 
+        let qualityRaw = rootMatch[2].trim(); 
+        let quality = 'M';
+        
+        const qMap = { '': 'M', 'm': 'm', 'min': 'm', '-': 'm', '7': '7', 'm7': 'm7', '-7': 'm7', 'min7': 'm7', 'maj7': 'M7', 'delta': 'M7', 'Δ': 'M7', 'm7b5': 'm7b5', 'ø': 'm7b5', 'hdim': 'm7b5', 'dim': 'dim', 'dim7': 'dim7', 'o': 'dim', 'o7': 'dim7', 'aug': 'aug', '+': 'aug', 'sus4': 'sus4', 'sus2': 'sus2', '7sus4': '7sus4', '6': '6', 'm6': 'm6', '-6': 'm6', 'add9': 'add9', 'mM7': 'mM7', '-M7': 'mM7' };
+        
+        if (Theory.QUALITIES.includes(qualityRaw)) quality = qualityRaw; 
+        else if (qMap[qualityRaw.toLowerCase()]) quality = qMap[qualityRaw.toLowerCase()]; 
+        else if (qMap[qualityRaw]) quality = qMap[qualityRaw]; 
+        else { 
+            if (qualityRaw.includes('maj7')) quality = 'M7'; 
+            else if (qualityRaw.includes('m7')) quality = 'm7'; 
+            else if (qualityRaw.startsWith('m')) quality = 'm'; 
+            else if (qualityRaw.startsWith('7')) quality = '7'; 
+        }
+        
+        if (tensions.includes('Alt')) { ['b9','#9','#11','b13'].forEach(t => { if(!tensions.includes(t)) tensions.push(t); }); }
+
+        // 3. Apply
+        this.pads[idx] = { 
+            id:idx, 
+            root:root, quality:quality, tensions:tensions, omit:omits, bass:bass,
+            contextKey: { root: 0, mode: 'Maj' },
+            isExplicitKey: isExplicit
+        };
+        
+        if (isExplicit) {
+            this.pads[idx].contextKey = { root: ctxRoot, mode: ctxMode };
+        } else {
+            this.recalcContext(idx);
+        }
+    },
+    
+    recalcContext(idx) {
+        if (idx === 0) {
+            if (!this.pads[0].isExplicitKey) {
+                this.pads[0].contextKey = { root: 0, mode: 'Maj' };
+            }
+            return;
+        }
+        const prev = this.pads[idx - 1];
+        if (prev) {
+            this.pads[idx].contextKey = { ...prev.contextKey };
+        }
+    },
+
+    // === EDIT MODE & CoF LOGIC ===
+    enterEditMode(idx) {
+        this.isEditPending = false; 
+        this.isEditing = true; 
+        this.editPadIdx = idx;
+        
+        const btn = document.getElementById('btn-ed'); 
+        btn.classList.remove('edit-pending'); 
+        btn.classList.add('editing-active'); 
+        btn.innerText = "DONE";
+        document.body.classList.add('editing'); 
+        
+        CoF.mount(document.getElementById('cofEditPlaceholder'));
+        
+        // Snap CoF to Pad's Context
+        const p = this.pads[idx];
+        CoF.setKey(p.contextKey.root, p.contextKey.mode, false);
+        
+        this.updateEditUI(); 
+        CoF.updateHighlights();
+    },
+    
+    toggleEditMode() {
+        const btn = document.getElementById('btn-ed');
+        if (this.isEditing) {
+            // Exit Edit Mode
+            this.isEditing = false; 
+            document.body.classList.remove('editing'); 
+            btn.classList.remove('editing-active'); 
+            btn.innerText = "ED";
+            
+            // Recalculate inheritance in case changes were made
+            for (let i = 0; i < 20; i++) this.recalcContext(i);
+            
+            this.renderPads(); 
+            this.precomputeDominantInfo();
+            // Move CoF back to widget
+            CoF.mount(this.widget.cofContainer);
+        } else {
+            this.isEditPending = !this.isEditPending;
+            if(this.isEditPending) { btn.classList.add('edit-pending'); btn.innerText = "SEL"; }
+            else { btn.classList.remove('edit-pending'); btn.innerText = "ED"; }
+        }
+    },
+		updateEditUI() {
+        if(this.editPadIdx < 0) return; 
+        const p = this.pads[this.editPadIdx]; 
+        
+        const parts = this.getDisplayParts(p);
+        document.getElementById('cofChordMain').innerText = parts.main + " " + parts.sub;
+        
+        // ... (Grid buttons active state logic unchanged) ...
+        document.querySelectorAll('#qualityGrid button').forEach(b => b.classList.toggle('active', b.innerText === p.quality));
+        document.querySelectorAll('#tensionGrid button').forEach(b => b.classList.toggle('active', p.tensions.includes(b.innerText)));
+        document.querySelectorAll('#omitGrid button').forEach(b => b.classList.toggle('active', p.omit.includes(b.innerText)));
+        document.querySelectorAll('.bass-key').forEach(k => k.classList.toggle('active', k.dataset.note === p.bass));
+        
+        const btnAuto = document.getElementById('btn-ctx-auto');
+        const btnMaj = document.getElementById('btn-ctx-maj');
+        const btnMin = document.getElementById('btn-ctx-min');
+        
+        if (btnAuto && btnMaj && btnMin) {
+            // FIX: Use CoF Spelling for labels
+            const previewRootIdx = this.globalKey.root;
+            const labels = (CoF.spellingMode === 'FLAT') ? CoF.LABELS_FLAT : CoF.LABELS_SHARP;
+            const rootName = labels[previewRootIdx];
+            const minRootName = CoF.LABELS_MINOR[previewRootIdx];
+            
+            btnMaj.innerHTML = `Major<br>(${rootName})`;
+            btnMin.innerHTML = `Minor<br>(${minRootName})`;
+
+            btnAuto.className = "btn-context";
+            btnMaj.className = "btn-context";
+            btnMin.className = "btn-context";
+
+            if (!p.isExplicitKey) {
+                btnAuto.classList.add('active');
+            } else {
+                if (p.contextKey.mode === 'Maj') {
+                    btnMaj.classList.add('active', 'fixed-mode');
+                } else {
+                    btnMin.classList.add('active', 'fixed-mode');
+                }
+            }
+        }
+    },
+		handleCoFRotation(newRootIdx) {
+        const oldRootIdx = this.globalKey.root;
+        let circleDiff = newRootIdx - oldRootIdx;
+        if (circleDiff > 6) circleDiff -= 12;
+        if (circleDiff < -6) circleDiff += 12;
+
+        // Update Global State (The "Preview" Cursor)
+        this.globalKey.root = newRootIdx;
+        
+        if (this.isEditing) {
+            const p = this.pads[this.editPadIdx];
+            if (p.isExplicitKey) {
+                // FIXED MODE: Update the pad immediately
+                p.contextKey.root = newRootIdx;
+                // Mode remains as set (Maj or Min)
+            }
+            // AUTO MODE: Pad doesn't change, but we call updateEditUI
+            // to refresh the button labels (Preview) based on globalKey.
+            
+            this.updateEditUI(); 
+        } else {
+            // PERFORMANCE MODE: Transpose
+            const semiDelta = (circleDiff * 7); 
+            this.transposeAllPads(semiDelta, circleDiff, newRootIdx);
+        }
+    },
+    transposeAllPads(semiDelta, circleDiff, globalTargetIdx) {
+        this.pads.forEach(p => {
+            // 1. Transpose Chord Notes (Root & Bass)
+            // semiDelta shifts the pitch. globalTargetIdx helps decide sharp/flat spelling.
+            p.root = Theory.transpose(p.root, semiDelta, globalTargetIdx);
+            if(p.bass) p.bass = Theory.transpose(p.bass, semiDelta, globalTargetIdx);
+            
+            // 2. Transpose Context (for Fixed Keys)
+            // If a pad is set to "Fixed in G", and we transpose the whole song up a 5th,
+            // that pad should become "Fixed in D".
+            if (p.isExplicitKey) {
+                let newCtxIdx = (p.contextKey.root + circleDiff) % 12;
+                if (newCtxIdx < 0) newCtxIdx += 12;
+                p.contextKey.root = newCtxIdx;
+            }
+            // Note: 'Auto' pads automatically inherit the transposed key from neighbors/global.
+        });
+        
+        // 3. Refresh System
+        this.renderPads();
+        this.precomputeDominantInfo(); // Re-evaluate V7 relationships in new key
+        
+        // 4. Update Widget Text if currently showing a chord
+        if (this.widget && this.widget.isVisible && this.voicingState.lastPad) {
+             const parts = this.getDisplayParts(this.voicingState.lastPad);
+             this.widget.updateInfo(null, parts.main + " " + parts.sub);
+        }
+    },
+    
+    toggleKeyMode() {
+        const newMode = CoF.toggleMode();
+        this.globalKey.mode = newMode;
+        if (this.isEditing) {
+            const p = this.pads[this.editPadIdx];
+            if (p.isExplicitKey) {
+                p.contextKey.mode = newMode;
+                this.updateEditUI();
+            }
+        }
+    },
+		setKeyContextMode(mode) {
+        if (!this.isEditing || this.editPadIdx < 0) return;
+        const p = this.pads[this.editPadIdx];
+        
+        if (mode === 'Auto') {
+            p.isExplicitKey = false;
+            this.recalcContext(this.editPadIdx);
+            
+            // Visual Snap: Return CoF to the inherited key
+            CoF.setKey(p.contextKey.root, p.contextKey.mode, true);
+        } else {
+            // Switching to Fixed: Commit the current Preview (Global Key) to the Pad
+            p.isExplicitKey = true;
+            p.contextKey.mode = mode;
+            p.contextKey.root = this.globalKey.root; 
+            
+            // Visual Snap: Ensure CoF mode (Maj/Min) matches the button clicked
+            CoF.setKey(p.contextKey.root, p.contextKey.mode, false);
+        }
+        
+        this.updateEditUI();
+    },
+
+    // === EDIT PAD DATA ===
+    setFromCoF(chordName) {
+        if(this.editPadIdx < 0) return;
+        let root = chordName; let quality = 'M';
+        if (chordName.includes('dim')) { root = chordName.replace('dim', ''); quality = 'dim7'; } else if (chordName.endsWith('m')) { root = chordName.replace('m', ''); quality = 'm7'; } else { quality = 'M7'; }
+        this.pads[this.editPadIdx].root = root; this.pads[this.editPadIdx].quality = quality; this.pads[this.editPadIdx].tensions = []; this.pads[this.editPadIdx].omit = [];
+        this.updateEditUI(); this.renderPads(); CoF.updateHighlights(); audioEngine.playChord(this.pads[this.editPadIdx].tensions, 48, false, null, Date.now());
+    },
+    setQuality(q) { if(this.editPadIdx < 0) return; this.pads[this.editPadIdx].quality = q; this.updateEditUI(); this.renderPads(); CoF.updateHighlights(); audioEngine.playChord([], 48, false, null, Date.now()); },
+    toggleTension(t) {
+        if(this.editPadIdx < 0) return; const p = this.pads[this.editPadIdx];
+        if (t === 'Alt') { const hasAlt = p.tensions.includes('Alt'); if (!hasAlt) { p.tensions.push('Alt'); ['b9', '#9', '#11', 'b13'].forEach(altT => { if(!p.tensions.includes(altT)) p.tensions.push(altT); }); } else { p.tensions.splice(p.tensions.indexOf('Alt'), 1); } } 
+        else { const idx = p.tensions.indexOf(t); if(idx > -1) p.tensions.splice(idx, 1); else p.tensions.push(t); }
+        this.updateEditUI(); this.renderPads(); audioEngine.playChord([], 48, false, null, Date.now());
+    },
+    toggleOmit(o) { if(this.editPadIdx < 0) return; const p = this.pads[this.editPadIdx]; const idx = p.omit.indexOf(o); if(idx > -1) p.omit.splice(idx, 1); else p.omit.push(o); this.updateEditUI(); this.renderPads(); audioEngine.playChord([], 48, false, null, Date.now()); },
+    setBass(note) { if(this.editPadIdx < 0) return; const p = this.pads[this.editPadIdx]; if (p.bass === note) p.bass = ''; else p.bass = note; this.updateEditUI(); this.renderPads(); audioEngine.playChord([], 48, false, null, Date.now()); },
+
+    // === EXECUTION & RENDERING ===
+    handlePadHit(idx, el) {
+        el.classList.add('active-touch');
+
+        if (this.isEditPending) {
+            this.enterEditMode(idx);
+            Logger.log('UI', 'Enter Edit Mode', { padIdx: idx });
+        } else if (this.isEditing) {
+            this.editPadIdx = idx;
+            // Snap CoF in Edit Mode
+            const p = this.pads[idx];
+            CoF.setKey(p.contextKey.root, p.contextKey.mode, true);
+            
+            this.updateEditUI();
+            this.renderPads();
+            CoF.updateHighlights();
+        } else {
+            const p = this.pads[idx];
+            
+            // KEY SNAP
+            if (p.isExplicitKey) {
+                this.globalKey = { ...p.contextKey };
+                CoF.setKey(this.globalKey.root, this.globalKey.mode, true);
+            }
+            
+            Logger.log('INPUT', `Pad Tap: ${this.getChordLabel(p)} (Ctx:${p.contextKey.root}-${p.contextKey.mode})`);
+
+            if (audioEngine.ctx && audioEngine.ctx.state === 'suspended') audioEngine.ctx.resume();
+            
+            const timestamp = Date.now();
+            el.dataset.padHitTime = timestamp;
+            this.checkResetTimeout();
+            
+            const isResolving = this.isResolvingDominant(this.voicingState.lastPad, p);
+            const voicing = this.selectBestVoicing(p, this.voicingState.lastPad, this.voicingState.lastVoicing, isResolving);
+            const bass = this.selectBassNote(p, this.voicingState.lastBass);
+
+            this.voicingState.lastPad = p;
+            this.voicingState.lastVoicing = voicing;
+            this.voicingState.lastBass = bass;
+            this.voicingState.lastTapTime = timestamp;
+
+            audioEngine.playChord(voicing, bass, this.isSC, el, timestamp);
+            
+            if (this.isVC) this.highlightKeyboard(p, voicing, bass);
+
+            if (this.widget && this.widget.isVisible) {
+                const parts = this.getDisplayParts(p);
+                this.widget.updateInfo(null, parts.main + " " + parts.sub);
+                CoF.highlightChord(p.root, p.quality);
+            }
+
+            if (this.isSC) {
+                if (this.activePadIdx !== -1 && this.activePadIdx !== idx) {
+                    const prev = document.querySelectorAll('.chord-pad')[this.activePadIdx];
+                    if (prev) prev.classList.remove('active-hold');
+                }
+                el.classList.add('active-hold');
+                this.activePadIdx = idx;
+            }
+        }
+    },
+
+    renderPads() {
+        const grid = document.getElementById('padGrid'); grid.innerHTML = '';
+        this.pads.forEach((pad, idx) => {
+            const el = document.createElement('div'); el.className = 'chord-pad';
+            if(this.isEditing && this.editPadIdx === idx) el.style.borderColor = "var(--accent-red)";
+            if(this.isSC && this.activePadIdx === idx) el.classList.add('active-hold');
+            const parts = this.getDisplayParts(pad);
+            el.innerHTML = `<div class="chord-main">${parts.main}</div><div class="chord-sub">${parts.sub}</div>`;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); this.handlePadHit(idx, el); });
+            el.addEventListener('mousedown', (e) => this.handlePadHit(idx, el));
+            el.addEventListener('touchend', (e) => { e.preventDefault(); el.classList.remove('active-touch'); el.dataset.padHitTime = ''; if(!this.isSC) { audioEngine.stopChords(); if(this.isVC) this.clearHighlight(); this.voicingState.lastTapTime = Date.now(); } });
+            el.addEventListener('mouseup', (e) => { el.classList.remove('active-touch'); el.dataset.padHitTime = ''; if(!this.isSC) { audioEngine.stopChords(); if(this.isVC) this.clearHighlight(); this.voicingState.lastTapTime = Date.now(); } });
+            grid.appendChild(el);
+        });
+    },
+
+    // === UI & RENDERERS ===
+    renderKeyboard() {
+        const layer = document.getElementById('kbLayer'); layer.innerHTML = '';
+        const notes = Theory.NOTES; const start = LAYOUT.GEN_RANGE.START; const end = LAYOUT.GEN_RANGE.END;
+        for (let i = 0; i <= end - start; i++) {
+            const n = start + i; const name = notes[n % 12]; const isBlack = name.includes('#');
+            const key = document.createElement('div'); key.className = `key ${isBlack ? 'black' : 'white'}`; key.dataset.note = n;
+            if (isBlack) {
+                key.style.width = `${LAYOUT.BLACK_KEY_WIDTH_PX}px`; key.style.marginLeft = `-${LAYOUT.BLACK_KEY_WIDTH_PX / 2}px`; key.style.marginRight = `-${LAYOUT.BLACK_KEY_WIDTH_PX / 2}px`;
+                key.style.height = `${LAYOUT.BLACK_KEY_HEIGHT_RATIO_LANDSCAPE * 100}%`;
+            } else { key.style.width = `${LAYOUT.WHITE_KEY_WIDTH_PX}px`; }
+            if(name === 'C') { const octave = Math.floor(n/12) - 1; key.innerHTML = `<span style="position:absolute; bottom:5px; width:100%; text-align:center; font-size:10px; color:#aaa;">C${octave}</span>`; }
+            layer.appendChild(key);
+        }
+        this.updateKbTransform();
+    },
+    
+    fitKeyboardRange() {
+        const startMidi = LAYOUT.INIT_VIEW.START_NOTE; const endMidi = LAYOUT.INIT_VIEW.END_NOTE;
+        const genStartMidi = LAYOUT.GEN_RANGE.START; 
+        const getWhiteKeyIndex = (midi) => { const octave = Math.floor(midi / 12); const noteInOctave = midi % 12; const whiteKeysInOctave = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]; return octave * 7 + whiteKeysInOctave[noteInOctave]; };
+        const startIdx = getWhiteKeyIndex(startMidi); const endIdx = getWhiteKeyIndex(endMidi); const genStartIdx = getWhiteKeyIndex(genStartMidi);
+        const whiteKeyCount = endIdx - startIdx;
+        if (whiteKeyCount <= 0) return;
+        const targetWidthPx = whiteKeyCount * LAYOUT.WHITE_KEY_WIDTH_PX;
+        const screenWidth = window.innerWidth;
+        const newScale = screenWidth / targetWidthPx;
+        const relativeStartIdx = startIdx - genStartIdx;
+        const newTranslateX = - (relativeStartIdx * LAYOUT.WHITE_KEY_WIDTH_PX * newScale);
+        this.kbState.scale = newScale; this.kbState.translateX = newTranslateX;
+        this.updateKbTransform();
+    },
+
+    initBassKeyboard() {
+        const container = document.getElementById('bassKeyboard'); container.innerHTML = '';
+        const notes = Theory.NOTES; let whiteIdx = 0;
+        notes.forEach((n, i) => {
+            if (!n.includes('#')) {
+                const k = document.createElement('div'); k.className = 'bass-key'; k.dataset.note = n;
+                k.onmousedown = () => this.setBass(n); k.onmouseup = () => audioEngine.stopChords();
+                k.ontouchstart = (e) => { e.preventDefault(); this.setBass(n); }; k.ontouchend = (e) => { e.preventDefault(); audioEngine.stopChords(); };
+                k.innerHTML = `<div class="bass-key-label">${n}</div>`; container.appendChild(k);
+            }
+        });
+        notes.forEach((n, i) => {
+            if (n.includes('#')) {
+                const bk = document.createElement('div'); bk.className = 'bass-key black';
+                const leftPC = (whiteIdx * 14.28) - 4; bk.style.left = `${leftPC}%`; bk.dataset.note = n;
+                bk.onmousedown = (e) => { e.stopPropagation(); this.setBass(n); }; bk.onmouseup = (e) => { e.stopPropagation(); audioEngine.stopChords(); };
+                bk.ontouchstart = (e) => { e.preventDefault(); e.stopPropagation(); this.setBass(n); }; bk.ontouchend = (e) => { e.preventDefault(); e.stopPropagation(); audioEngine.stopChords(); };
+                container.appendChild(bk);
+            } else { whiteIdx++; }
+        });
+    },
+
+    initControls() {
+        const qGrid = document.getElementById('qualityGrid'); Theory.QUALITIES.forEach(q => { const b = document.createElement('button'); b.innerText = q; b.className = 'btn-opt'; b.onmousedown = () => this.setQuality(q); b.onmouseup = () => audioEngine.stopChords(); b.ontouchstart = (e) => { e.preventDefault(); this.setQuality(q); }; b.ontouchend = (e) => { e.preventDefault(); audioEngine.stopChords(); }; qGrid.appendChild(b); });
+        const tGrid = document.getElementById('tensionGrid'); Theory.TENSIONS.forEach(t => { const b = document.createElement('button'); b.innerText = t; b.className = 'btn-opt'; b.onmousedown = () => this.toggleTension(t); b.onmouseup = () => audioEngine.stopChords(); b.ontouchstart = (e) => { e.preventDefault(); this.toggleTension(t); }; b.ontouchend = (e) => { e.preventDefault(); audioEngine.stopChords(); }; tGrid.appendChild(b); });
+        const oGrid = document.getElementById('omitGrid'); Theory.OMITS.forEach(o => { const b = document.createElement('button'); b.innerText = o; b.className = 'btn-opt'; b.onmousedown = () => this.toggleOmit(o); b.onmouseup = () => audioEngine.stopChords(); b.ontouchstart = (e) => { e.preventDefault(); this.toggleOmit(o); }; b.ontouchend = (e) => { e.preventDefault(); audioEngine.stopChords(); }; oGrid.appendChild(b); });
+    },
+
+    setupKeyboardInteraction() {
+        const w = document.getElementById('kbWrapper');
+        w.addEventListener('touchstart', (e) => this.onKbTouchStart(e), {passive: false});
+        w.addEventListener('touchmove', (e) => this.onKbTouchMove(e), {passive: false});
+        w.addEventListener('touchend', (e) => this.onKbTouchEnd(e), {passive: false});
+        w.addEventListener('touchcancel', (e) => this.onKbTouchEnd(e), {passive: false});
+    },
+
+    // === KEYBOARD TOUCH LOGIC ===
+    onKbTouchStart(e) {
+        e.preventDefault();
+        if (audioEngine.ctx && audioEngine.ctx.state === 'suspended') { audioEngine.ctx.resume(); }
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i]; const el = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (el && el.classList.contains('key')) {
+                const n = parseInt(el.dataset.note); const f = AUDIO_CONFIG.CONCERT_A_FREQ * Math.pow(2, (n - AUDIO_CONFIG.CONCERT_A_MIDI) / AUDIO_CONFIG.SEMITONES_PER_OCTAVE);
+                const voiceId = `key-${n}-${Date.now()}`; el.classList.add('pressed'); audioEngine.playKey(f, voiceId, this.isSK);
+                this.kbState.activeTouches.set(touch.identifier, { note: n, voiceId: voiceId, isKey: true, element: el });
+            } else { this.kbState.activeTouches.set(touch.identifier, { isKey: false, startX: touch.clientX, startY: touch.clientY }); }
+        }
+        const nonKeyTouches = Array.from(this.kbState.activeTouches.values()).filter(t => !t.isKey);
+        if (nonKeyTouches.length === 1) { this.kbState.lastX = nonKeyTouches[0].startX; }
+        else if (nonKeyTouches.length === 2) { const t1 = nonKeyTouches[0]; const t2 = nonKeyTouches[1]; this.kbState.lastDist = Math.hypot(t2.startX - t1.startX, t2.startY - t1.startY); }
+    },
+    onKbTouchMove(e) {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i]; const touchData = this.kbState.activeTouches.get(touch.identifier);
+            if (touchData && touchData.isKey) {
+                const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (el && el.classList.contains('key')) {
+                    const newNote = parseInt(el.dataset.note);
+                    if (newNote !== touchData.note) {
+                        touchData.element.classList.remove('pressed'); if (!this.isSK) { audioEngine._stopVoice(audioEngine.activeKeyVoices, touchData.voiceId, AUDIO_CONFIG.ENVELOPE.KEY_RELEASE); }
+                        const f = AUDIO_CONFIG.CONCERT_A_FREQ * Math.pow(2, (newNote - AUDIO_CONFIG.CONCERT_A_MIDI) / AUDIO_CONFIG.SEMITONES_PER_OCTAVE);
+                        const voiceId = `key-${newNote}-${Date.now()}`; el.classList.add('pressed'); audioEngine.playKey(f, voiceId, this.isSK);
+                        touchData.note = newNote; touchData.voiceId = voiceId; touchData.element = el;
+                    }
+                }
+            }
+        }
+        const nonKeyTouches = []; for (let i = 0; i < e.touches.length; i++) { const touch = e.touches[i]; const touchData = this.kbState.activeTouches.get(touch.identifier); if (touchData && !touchData.isKey) { nonKeyTouches.push({ id: touch.identifier, x: touch.clientX, y: touch.clientY }); } }
+        if (nonKeyTouches.length === 1) { const dx = nonKeyTouches[0].x - this.kbState.lastX; this.kbState.translateX += dx; this.kbState.lastX = nonKeyTouches[0].x; this.updateKbTransform(); }
+        else if (nonKeyTouches.length === 2) { const dist = Math.hypot(nonKeyTouches[1].x - nonKeyTouches[0].x, nonKeyTouches[1].y - nonKeyTouches[0].y); const scale = dist / this.kbState.lastDist; const newScale = Math.max(UI_CONFIG.KEYBOARD_MIN_SCALE, Math.min(UI_CONFIG.KEYBOARD_MAX_SCALE, this.kbState.scale * scale)); const centerX = window.innerWidth / 2; const ratio = newScale / this.kbState.scale; this.kbState.translateX = centerX - (centerX - this.kbState.translateX) * ratio; this.kbState.scale = newScale; this.kbState.lastDist = dist; this.updateKbTransform(); }
+    },
+    onKbTouchEnd(e) {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i]; const touchData = this.kbState.activeTouches.get(touch.identifier);
+            if (touchData && touchData.isKey) { touchData.element.classList.remove('pressed'); if (!this.isSK) { audioEngine._stopVoice(audioEngine.activeKeyVoices, touchData.voiceId, AUDIO_CONFIG.ENVELOPE.KEY_RELEASE); } }
+            this.kbState.activeTouches.delete(touch.identifier);
+        }
+        const nonKeyTouches = []; for (let i = 0; i < e.touches.length; i++) { const touch = e.touches[i]; const touchData = this.kbState.activeTouches.get(touch.identifier); if (touchData && !touchData.isKey) { nonKeyTouches.push({ x: touch.clientX, y: touch.clientY }); } }
+        if (nonKeyTouches.length === 1) { this.kbState.lastX = nonKeyTouches[0].x; } else if (nonKeyTouches.length === 2) { this.kbState.lastDist = Math.hypot(nonKeyTouches[1].x - nonKeyTouches[0].x, nonKeyTouches[1].y - nonKeyTouches[0].y); }
+    },
+    updateKbTransform() { document.getElementById('kbLayer').style.transform = `translateX(${this.kbState.translateX}px) scaleX(${this.kbState.scale})`; },
+
+    // === HELPERS & TOGGLES ===
+    getChordLabel(pad) { const qDisplay = pad.quality === 'M' ? '' : pad.quality; let label = pad.root + qDisplay; if (pad.tensions.includes('Alt')) label += 'alt'; else if (pad.tensions.length > 0) label += `(${pad.tensions.join(',')})`; if (pad.omit && pad.omit.length > 0) label += `(${pad.omit.join(',')})`; if (pad.bass) label += `/${pad.bass}`; return label; },
+    getDisplayParts(pad) { const qDisplay = pad.quality === 'M' ? '' : pad.quality; const main = pad.root + qDisplay; let sub = ''; if (pad.tensions.includes('Alt')) sub += 'alt'; else if (pad.tensions.length > 0) sub += `(${pad.tensions.join(',')})`; if (pad.omit && pad.omit.length > 0) sub += `(${pad.omit.join(',')})`; if (pad.bass) sub += `/${pad.bass}`; return { main, sub }; },
+    toggleSC() { this.isSC = !this.isSC; document.getElementById('btn-sc').classList.toggle('active'); if (!this.isSC) { audioEngine.stopChords(); if (this.activePadIdx !== -1) { const el = document.querySelectorAll('.chord-pad')[this.activePadIdx]; if (el) el.classList.remove('active-hold'); this.activePadIdx = -1; } } },
+    toggleSK() { this.isSK = !this.isSK; document.getElementById('btn-sk').classList.toggle('active'); if (!this.isSK) { audioEngine.stopKeys(); document.querySelectorAll('.key.pressed').forEach(k => k.classList.remove('pressed')); } },
+    toggleVC() { this.isVC = !this.isVC; document.getElementById('btn-vc').classList.toggle('active'); if (!this.isVC) this.clearHighlight(); if (this.isVC && this.voicingState.lastVoicing) { const p = this.voicingState.lastPad || this.pads[this.activePadIdx]; if (p) this.highlightKeyboard(p, this.voicingState.lastVoicing, this.voicingState.lastBass); } },
+    toggleCoF() { const isActive = this.widget.toggle(); document.getElementById('btn-cof').classList.toggle('active', isActive); if(isActive && !this.isEditing) CoF.mount(this.widget.cofContainer); },
+    toggleTheme() { document.body.classList.toggle('dark-mode'); },
+    
+    // === I/O ===
+ 		openIE() { 
+        const modal = document.getElementById('modal-ie'); 
+        const text = document.getElementById('ie-text'); 
+        const actions = document.getElementById('modal-actions'); 
+        document.getElementById('modal-title').textContent = 'Import / Export'; 
+        text.style.display = 'block'; actions.style.display = 'flex'; 
+        text.readOnly = false; 
+        actions.innerHTML = `<button onclick="app.selectAllIE()">SelAll</button><button onclick="app.copyToClipboard()">ExpToCp</button><button class="active" onclick="app.importData()">ImpToPads</button>`; 
+        
+        let str = ""; 
+        this.pads.forEach(p => { 
+            str += this.getChordLabel(p); 
+            
+            // FIX: Correctly export Key Context
+            if(p.isExplicitKey) { 
+                const m = (p.contextKey.mode === 'Min') ? 'Min' : 'Maj'; 
+                
+                // Use CoF definitions to get the correct root name (Sharp or Flat)
+                // Default to Sharp if CoF not available, or use current CoF spelling
+                const labels = (CoF.spellingMode === 'FLAT') ? CoF.LABELS_FLAT : CoF.LABELS_SHARP;
+                
+                let r = "";
+                if (m === 'Min') {
+                    // For Minor, usually stick to standard relative names, or use CoF minor array
+                    r = CoF.LABELS_MINOR[p.contextKey.root]; 
+                    // Remove 'm' suffix for the 'in [Root] [Mode]' syntax if expected format is 'in A Min'
+                    r = r.replace('m', ''); 
+                } else {
+                    r = labels[p.contextKey.root];
+                }
+                
+                str += ` in ${r} ${m}`; 
+            } 
+            str += "\n"; 
+        }); 
+        
+        text.value = str; 
+        modal.style.display = 'flex'; 
+        modal.onclick = (e) => { if (e.target === modal) this.closeIE(); }; 
+    },
+    closeIE() { document.getElementById('modal-ie').style.display = 'none'; },
+    selectAllIE() { document.getElementById('ie-text').select(); },
+    copyToClipboard() { const text = document.getElementById('ie-text'); text.select(); navigator.clipboard.writeText(text.value).then(() => alert('Copied!'), () => alert('Failed to copy')); },
+    importData() { const text = document.getElementById('ie-text').value; const lines = text.split('\n').map(l => l.trim()).filter(l => l !== ""); for(let i=0; i<20; i++) { this.pads[i] = { id: i, root: 'C', quality: 'M', tensions: [], omit: [], bass: '', contextKey: {root:0,mode:'Maj'}, isExplicitKey: false }; } for(let i=0; i<20; i++) { if (i < lines.length) this.parseChordLine(i, lines[i]); else this.recalcContext(i); } const p0 = this.pads[0]; this.globalKey = { ...p0.contextKey }; CoF.setKey(this.globalKey.root, this.globalKey.mode); this.renderPads(); this.precomputeDominantInfo(); this.closeIE(); },
+    
+    // === VOICING & LOGIC ===
+    getCurrentKey() { return Theory.CIRCLE[CoF.activeKeyIdx]; }, // Legacy wrapper
+    changeKey(newKeyIdx) { /* Legacy: now handled by rotation */ },
+    handleCoFCenterClick() { if (this.isEditing) { } else { if (this.widget.isVisible) this.widget.toggleExpand(); } },
+    toggleStaffOverlay() { const overlay = document.getElementById('staffOverlay'); overlay.classList.toggle('active'); if (overlay.classList.contains('active')) { StaffRenderer.renderTo(document.getElementById('staffBox'), CoF.getKeyInfo().sigCount); } },
+    highlightKeyboard(pad, voicing, bassMidi) { document.querySelectorAll('.key').forEach(k => { k.classList.remove('vc-root', 'vc-bass', 'vc-tone', 'vc-tension'); }); if (!voicing || bassMidi === null) return; const rootSemi = Theory.toSemi(pad.root); const intervals = Theory.getChordIntervals(pad.quality, pad.tensions, pad.omit); const tensionChromas = intervals.filter(i => i.type === 'tension').map(i => (rootSemi + i.semi) % 12); const notesToLight = new Set([...voicing, bassMidi]); notesToLight.forEach(midi => { const keyEl = document.querySelector(`.key[data-note="${midi}"]`); if (!keyEl) return; const chroma = midi % 12; if (midi === bassMidi) { keyEl.classList.add('vc-bass'); return; } if (chroma === rootSemi) { keyEl.classList.add('vc-root'); return; } if (tensionChromas.includes(chroma)) { keyEl.classList.add('vc-tension'); return; } keyEl.classList.add('vc-tone'); }); },
+    clearHighlight() { document.querySelectorAll('.key').forEach(k => { k.classList.remove('vc-root', 'vc-bass', 'vc-tone', 'vc-tension'); }); },
+    
+    // Voicing Logic Methods
+    checkResetTimeout() { const now = Date.now(); if (this.voicingState.lastTapTime > 0 && (now - this.voicingState.lastTapTime) > VOICING_CONFIG.RESET_TIMEOUT_MS) { this.voicingState.lastPad = null; this.voicingState.lastVoicing = null; this.voicingState.lastBass = null; } },
+    isResolvingDominant(prevPad, currentPad) { if (!prevPad) return false; const currentRoot = currentPad._rootSemi; const key = Theory.CIRCLE[this.globalKey.root]; const keyRoot = Theory.toSemi(key); if (prevPad._diatonicResolution && prevPad._diatonicResolution.resolvesToTonic) { if (currentRoot === keyRoot) return true; } const v7OfTarget = (currentRoot + 7) % 12; const prevRoot = prevPad._rootSemi; if (prevRoot === v7OfTarget && this._hasDominant7thQuality(prevPad.quality)) { return true; } const subVOfTarget = (currentRoot + 1) % 12; if (prevRoot === subVOfTarget && this._hasDominant7thQuality(prevPad.quality)) { return true; } return false; },
+    generateVoicingCandidates(pad) { const rootSemi = pad._rootSemi; const intervals = Theory.getChordIntervals(pad.quality, pad.tensions, pad.omit); const chordTones = []; intervals.forEach(interval => { if (interval.type === 'root' || interval.type === 'tone') { const semi = (rootSemi + interval.semi) % 12; for (let midi = VOICING_CONFIG.CHORD_MIN; midi <= VOICING_CONFIG.CHORD_MAX; midi++) { if (midi % 12 === semi) chordTones.push(midi); } } }); const tensions = []; intervals.forEach(interval => { if (interval.type === 'tension') { const semi = (rootSemi + interval.semi) % 12; for (let midi = VOICING_CONFIG.CHORD_MIN; midi <= VOICING_CONFIG.CHORD_MAX; midi++) { if (midi % 12 === semi) tensions.push(midi); } } }); const candidates = []; for (let i = 0; i < chordTones.length - 2; i++) { for (let j = i + 1; j < chordTones.length - 1; j++) { for (let k = j + 1; k < chordTones.length; k++) { const voicing = [chordTones[i], chordTones[j], chordTones[k]].sort((a, b) => a - b); if (this._isValidVoicing(voicing, pad)) candidates.push(voicing); } } } for (let i = 0; i < chordTones.length - 3; i++) { for (let j = i + 1; j < chordTones.length - 2; j++) { for (let k = j + 1; k < chordTones.length - 1; k++) { for (let l = k + 1; l < chordTones.length; l++) { const voicing = [chordTones[i], chordTones[j], chordTones[k], chordTones[l]].sort((a, b) => a - b); if (this._isValidVoicing(voicing, pad)) candidates.push(voicing); } } } } if (tensions.length > 0) { for (let i = 0; i < chordTones.length - 3; i++) { for (let j = i + 1; j < chordTones.length - 2; j++) { for (let k = j + 1; k < chordTones.length - 1; k++) { for (let l = k + 1; l < chordTones.length; l++) { for (let t = 0; t < tensions.length; t++) { const base = [chordTones[i], chordTones[j], chordTones[k], chordTones[l]]; const voicing = [...base, tensions[t]].sort((a, b) => a - b); if (this._isValidVoicing(voicing, pad) && this._hasValidTensionSpacing(voicing, tensions[t])) { candidates.push(voicing); } } } } } } } return candidates; },
+    selectBestVoicing(currentPad, prevPad, prevVoicing, isResolving) { let isReset = false; const baseContext = { type: 'normal', reset: false, resolving: isResolving }; if (currentPad.id === 0 || currentPad.id === 10) { isReset = true; prevVoicing = null; isResolving = false; prevPad = null; baseContext.type = 'forced_reset'; baseContext.reset = true; } if (!isReset && prevPad && prevVoicing && prevVoicing.length > 0) { const isSamePad = currentPad.id === prevPad.id; const isSameContent = currentPad.root === prevPad.root && currentPad.quality === prevPad.quality && currentPad.bass === prevPad.bass && JSON.stringify(currentPad.tensions) === JSON.stringify(prevPad.tensions) && JSON.stringify(currentPad.omit) === JSON.stringify(prevPad.omit); if (isSamePad || isSameContent) { if (this._isValidVoicing(prevVoicing, currentPad)) { return prevVoicing; } } } const rawCandidates = this.generateVoicingCandidates(currentPad); if (rawCandidates.length === 0) return [60]; let targetCenter = VOICING_SCORING.THRESHOLDS.TARGET_CENTER_DEFAULT; let prevTop = VOICING_SCORING.THRESHOLDS.PREV_TOP_DEFAULT; let prev7thMidi = null; let prev3rdMidi = null; if (!isReset && prevVoicing && prevVoicing.length > 0) { targetCenter = (prevVoicing[0] + prevVoicing[prevVoicing.length - 1]) / 2; prevTop = prevVoicing[prevVoicing.length - 1]; if (isResolving && prevPad) { const prevRootSemi = Theory.toSemi(prevPad.root); const prevIntervals = Theory.getChordIntervals(prevPad.quality, prevPad.tensions, prevPad.omit); let prev7thChroma = -1; let prev3rdChroma = -1; prevIntervals.forEach(i => { if (i.semi === 10 || i.semi === 11) prev7thChroma = (prevRootSemi + i.semi) % 12; if (i.semi === 3 || i.semi === 4) prev3rdChroma = (prevRootSemi + i.semi) % 12; }); prevVoicing.forEach(note => { const noteChroma = note % 12; if (prev7thChroma !== -1 && noteChroma === prev7thChroma) prev7thMidi = note; if (prev3rdChroma !== -1 && noteChroma === prev3rdChroma) prev3rdMidi = note; }); } } const isTriadQuality = (currentPad.quality === 'M' || currentPad.quality === 'm'); const scoredCandidates = rawCandidates.map(candidate => { let score = 0; const currentCenter = (candidate[0] + candidate[candidate.length - 1]) / 2; const currentTop = candidate[candidate.length - 1]; const range = currentTop - candidate[0]; const count = candidate.length; const breakdown = { gravity: 0, stability: 0, compact: 0, triad: 0, lowBias: 0, resolution: 0 }; const dist = Math.abs(currentCenter - targetCenter); breakdown.gravity = -(dist * VOICING_SCORING.WEIGHTS.GRAVITY); score += breakdown.gravity; const topDist = Math.abs(currentTop - prevTop); breakdown.stability = -(topDist * VOICING_SCORING.WEIGHTS.STABILITY); score += breakdown.stability; if (range <= VOICING_SCORING.THRESHOLDS.COMPACT_MIN) { breakdown.compact = VOICING_SCORING.WEIGHTS.COMPACT_BONUS; } else if (range > VOICING_SCORING.THRESHOLDS.COMPACT_MAX) { breakdown.compact = -VOICING_SCORING.WEIGHTS.COMPACT_PENALTY; } score += breakdown.compact; if (isTriadQuality) { if (count === 3) breakdown.triad = VOICING_SCORING.WEIGHTS.TRIAD_BONUS; else breakdown.triad = -VOICING_SCORING.WEIGHTS.TRIAD_PENALTY; } else { if (count >= 4) breakdown.triad = VOICING_SCORING.WEIGHTS.EXTENDED_BONUS; } score += breakdown.triad; breakdown.lowBias = -(currentCenter * VOICING_SCORING.WEIGHTS.LOW_BIAS); score += breakdown.lowBias; if (isResolving) { if (prev7thMidi !== null) { const resolvedNote = candidate.find(n => (prev7thMidi - n === VOICING_SCORING.THRESHOLDS.SEMITONE_STEP) || (prev7thMidi - n === VOICING_SCORING.THRESHOLDS.WHOLE_TONE_STEP)); if (resolvedNote !== undefined) breakdown.resolution += VOICING_SCORING.WEIGHTS.RESOLUTION_7TH; } if (prev3rdMidi !== null) { const resolvedNote = candidate.find(n => n - prev3rdMidi === VOICING_SCORING.THRESHOLDS.SEMITONE_STEP); if (resolvedNote !== undefined) breakdown.resolution += VOICING_SCORING.WEIGHTS.RESOLUTION_3RD; } } score += breakdown.resolution; return { voicing: candidate, score: score, breakdown: breakdown }; }); scoredCandidates.sort((a, b) => b.score - a.score); Logger.log('CALC', 'Voicing Selection', { ctx: Object.assign({}, baseContext, { targetCenter: targetCenter, prevTop: prevTop }), top3: scoredCandidates.slice(0, 3) }); return scoredCandidates[0].voicing; },
+    selectBassNote(pad, prevBass) { const rootSemi = pad._rootSemi; let targetBass = prevBass; if (pad.id === 0 || pad.id === 10 || prevBass === null) { targetBass = 48; } if (pad.bass) { const bassSemi = Theory.toSemi(pad.bass); for (let midi = VOICING_CONFIG.BASS_MIN; midi <= VOICING_CONFIG.BASS_MAX; midi++) { if (midi % 12 === bassSemi) { if (targetBass !== null) { let bestMidi = midi; let bestDistance = Math.abs(midi - targetBass); for (let midi2 = VOICING_CONFIG.BASS_MIN; midi2 <= VOICING_CONFIG.BASS_MAX; midi2++) { if (midi2 % 12 === bassSemi) { const distance = Math.abs(midi2 - targetBass); if (distance < bestDistance) { bestDistance = distance; bestMidi = midi2; } } } return bestMidi; } return midi; } } } if (targetBass !== null) { let bestMidi = null; let bestDistance = Infinity; for (let midi = VOICING_CONFIG.BASS_MIN; midi <= VOICING_CONFIG.BASS_MAX; midi++) { if (midi % 12 === rootSemi) { const distance = Math.abs(midi - targetBass); if (distance < bestDistance) { bestDistance = distance; bestMidi = midi; } } } if (bestMidi !== null) return bestMidi; } for (let midi = VOICING_CONFIG.BASS_MIN; midi <= VOICING_CONFIG.BASS_MAX; midi++) { if (midi % 12 === rootSemi) return midi; } return VOICING_CONFIG.BASS_MIN; },
+    _isValidVoicing(voicing, pad) { if (voicing.length === 0) return false; const unique = [...new Set(voicing)]; if (unique.length !== voicing.length) return false; const chromas = voicing.map(midi => midi % 12); const uniqueChromas = [...new Set(chromas)]; if (uniqueChromas.length < 2) return false; for (const chroma of uniqueChromas) { const count = chromas.filter(c => c === chroma).length; if (count > 2) return false; } for (const note of voicing) { if (note < VOICING_CONFIG.CHORD_MIN || note > VOICING_CONFIG.CHORD_MAX) return false; } if (pad) { const intervals = Theory.getChordIntervals(pad.quality, pad.tensions, pad.omit); const chordTones = intervals.filter(i => i.type === 'root' || i.type === 'tone'); const rootChroma = pad._rootSemi % 12; let thirdChroma = null; let fifthChroma = null; let seventhChroma = null; for (const interval of chordTones) { const chroma = (rootChroma + interval.semi) % 12; if (interval.semi === 3 || interval.semi === 4) thirdChroma = chroma; else if (interval.semi === 7) fifthChroma = chroma; else if (interval.semi === 10 || interval.semi === 11 || interval.semi === 9) seventhChroma = chroma; } const voicingChromas = voicing.map(midi => midi % 12); if (!voicingChromas.includes(rootChroma)) return false; if (thirdChroma !== null && !voicingChromas.includes(thirdChroma)) return false; if (seventhChroma !== null) { if (!voicingChromas.includes(seventhChroma)) return false; } if (seventhChroma === null && thirdChroma !== null && fifthChroma !== null) { if (voicing.length === 3) { if (!voicingChromas.includes(fifthChroma)) return false; } } } return true; },
+    _hasValidTensionSpacing(voicing, tensionNote) { for (const note of voicing) { if (note !== tensionNote) { const interval = Math.abs(note - tensionNote); if (interval < VOICING_CONFIG.TENSION_MIN_INTERVAL && interval !== 0) return false; } } return true; },
+    precomputeDominantInfo() { const key = Theory.CIRCLE[this.globalKey.root]; const keyRoot = Theory.toSemi(key); const isMinorKey = this.globalKey.mode === 'Min'; this.pads.forEach(pad => { pad._rootSemi = Theory.toSemi(pad.root); pad._isDominant7th = this._hasDominant7thQuality(pad.quality); pad._isDominantTriad = this._isDominantTriadQuality(pad.quality, pad._rootSemi, keyRoot); pad._isHalfDim = pad.quality === 'm7b5' || pad.quality.startsWith('m7b5('); pad._isDim7 = pad.quality === 'dim7' || pad.quality.startsWith('dim7('); if (pad._isDominant7th || pad._isDominantTriad) { pad._diatonicResolution = this._computeDiatonicResolution(pad._rootSemi, pad._isHalfDim, pad._isDim7, keyRoot, isMinorKey); } else { pad._diatonicResolution = { resolvesToTonic: false, resolvedRootSemi: null, resolutionType: null }; } }); },
+    _isDominantTriadQuality(quality, rootSemi, keyRoot) { if (quality.includes('7') || quality === 'm' || quality.startsWith('m(') || quality.includes('dim') || quality.includes('aug')) return false; const perfectFifthDown = (rootSemi + 5) % 12; return perfectFifthDown === keyRoot; },
+    _hasDominant7thQuality(quality) { if (quality.includes('M7') || quality === 'm7' || quality.startsWith('m7(') || quality.includes('mM7')) return false; return quality.includes('7') || quality === 'm7b5'; },
+    _computeDiatonicResolution(rootSemi, isHalfDim, isDim7, keyRoot, isMinorKey) { const result = { resolvesToTonic: false, resolvedRootSemi: null, resolutionType: null }; const perfectFifthUp = (rootSemi + 7) % 12; if (perfectFifthUp === keyRoot) { result.resolvesToTonic = true; result.resolvedRootSemi = keyRoot; result.resolutionType = 'V7'; return result; } if (rootSemi === (keyRoot + 1) % 12) { result.resolvesToTonic = true; result.resolvedRootSemi = keyRoot; result.resolutionType = 'bII7'; return result; } if ((rootSemi + 2) % 12 === keyRoot) { result.resolvesToTonic = true; result.resolvedRootSemi = keyRoot; result.resolutionType = 'bVII7'; return result; } if (isHalfDim) { const perfectFourthUp = (rootSemi + 5) % 12; result.resolvesToTonic = false; result.resolvedRootSemi = perfectFourthUp; result.resolutionType = 'halfDim'; return result; } if (isDim7 && isMinorKey) { if ((rootSemi + 1) % 12 === keyRoot) { result.resolvesToTonic = true; result.resolvedRootSemi = keyRoot; result.resolutionType = 'dim7'; return result; } } return result; },
+    setupLogoLongPress() { const logo = document.getElementById('logo-jcsc'); if (!logo) return; const startPress = (e) => { e.preventDefault(); this.longPressStartTime = Date.now(); logo.classList.add('pressing'); this.longPressTimer = setTimeout(() => { this.copyLogToClipboard(); logo.classList.remove('pressing'); }, UI_CONFIG.LONGPRESS_DURATION_MS); }; const endPress = (e) => { e.preventDefault(); if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; } logo.classList.remove('pressing'); }; logo.addEventListener('touchstart', startPress); logo.addEventListener('mousedown', startPress); logo.addEventListener('touchend', endPress); logo.addEventListener('mouseup', endPress); logo.addEventListener('touchcancel', endPress); logo.addEventListener('mouseleave', endPress); },
+    async copyLogToClipboard() { const logText = Logger.exportText(); if (!logText) { alert('No logs.'); return; } try { await navigator.clipboard.writeText(logText); alert(`Logs copied!`); } catch (err) { this.showLogModal(); } },
+    showLogModal() { const logText = Logger.exportText(); const modal = document.getElementById('modal-ie'); const text = document.getElementById('ie-text'); const actions = document.getElementById('modal-actions'); const title = document.getElementById('modal-title'); title.textContent = `Debug Log`; text.style.display = 'block'; actions.style.display = 'flex'; text.value = logText; text.readOnly = true; actions.innerHTML = `<button onclick="app.copyLogFromModal()">Copy All</button><button onclick="app.selectAllIE()">Select All</button><button onclick="app.closeIE()">Close</button>`; modal.style.display = 'flex'; modal.onclick = (e) => { if (e.target === modal) this.closeIE(); }; },
+    async copyLogFromModal() { const text = document.getElementById('ie-text'); try { await navigator.clipboard.writeText(text.value); alert('Copied logs!'); } catch (err) { text.select(); document.execCommand('copy'); alert('Copied logs!'); } }
+};
+
+app.init();
+</script>
